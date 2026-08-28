@@ -1,0 +1,181 @@
+name: Build Single Image Multi-Arch
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: 'Name of the image (e.g. rust-common)'
+        required: true
+        type: string
+      context:
+        description: 'Docker build context path'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Path to Dockerfile'
+        required: true
+        type: string
+      push:
+        description: 'Push image to registry'
+        required: false
+        default: true
+        type: boolean
+      extra_tag:
+        description: 'Optional extra tag'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 1. Native Multi-Platform Build:
+  #    - linux/amd64 built natively on ubuntu-latest (x86_64)
+  #    - linux/arm64 built natively on ubuntu-24.04-arm (arm64)
+  # --------------------------------------------------------------------------
+  build-arch:
+    name: Build (${{ inputs.image_name }} - ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            platform: linux/amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            platform: linux/arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata & image base name
+        id: meta
+        env:
+          REPO_LOWER: ${{ github.repository }}
+        run: |
+          REPO_LOWER=$(echo "$REPO_LOWER" | tr '[:upper:]' '[:lower:]')
+          IMAGE_BASE="ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}"
+          echo "image_base=${IMAGE_BASE}" >> $GITHUB_OUTPUT
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          outputs: ${{ inputs.push && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.image_base) || 'type=image,push=false' }}
+          cache-from: type=gha,scope=${{ inputs.image_name }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.image_name }}-${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.title=${{ inputs.image_name }}
+            org.opencontainers.image.description=Coding environment image for ${{ inputs.image_name }} (${{ matrix.arch }})
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Export digest
+        if: inputs.push
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest artifact
+        if: inputs.push
+        uses: actions/upload-artifact@main
+        with:
+          name: digests-${{ inputs.image_name }}-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # --------------------------------------------------------------------------
+  # 2. Merge manifests and publish multi-arch images on ubuntu-latest
+  # --------------------------------------------------------------------------
+  merge-and-publish:
+    name: Merge & Publish (${{ inputs.image_name }})
+    needs: build-arch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Download digests
+        if: inputs.push
+        uses: actions/download-artifact@main
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ inputs.image_name }}-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        if: inputs.push
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch manifest list and push
+        if: inputs.push
+        env:
+          EXTRA_TAG: ${{ inputs.extra_tag }}
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_BASE="ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}"
+          DATE_TAG=$(date +'%Y%m%d')
+          SHA_SHORT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+          TAG_ARGS=()
+          TAG_ARGS+=("-t" "${IMAGE_BASE}:latest")
+          TAG_ARGS+=("-t" "${IMAGE_BASE}:${DATE_TAG}")
+          if [ "${SHA_SHORT}" != "unknown" ]; then
+            TAG_ARGS+=("-t" "${IMAGE_BASE}:sha-${SHA_SHORT}")
+          fi
+          if [ -n "$EXTRA_TAG" ]; then
+            TAG_ARGS+=("-t" "${IMAGE_BASE}:${EXTRA_TAG}")
+          fi
+
+          cd /tmp/digests
+          DIGEST_SOURCES=()
+          for hash in *; do
+            DIGEST_SOURCES+=("${IMAGE_BASE}@sha256:${hash}")
+          done
+
+          echo "Merging manifests for ${IMAGE_BASE} with sources:"
+          printf '  - %s\n' "${DIGEST_SOURCES[@]}"
+          echo "Tags to apply:"
+          for (( i=0; i<${#TAG_ARGS[@]}; i+=2 )); do
+            echo "  * ${TAG_ARGS[$i+1]}"
+          done
+
+          docker buildx imagetools create "${TAG_ARGS[@]}" "${DIGEST_SOURCES[@]}"
+
+      - name: Inspect multi-arch manifest
+        if: inputs.push
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_BASE="ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}"
+          docker buildx imagetools inspect "${IMAGE_BASE}:latest"

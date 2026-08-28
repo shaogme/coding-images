@@ -1,0 +1,94 @@
+name: Build and Publish Images
+
+on:
+  # Daily schedule at 04:00 AM Beijing Time (CST = UTC+8 -> 20:00 UTC previous day)
+  schedule:
+    - cron: '0 20 * * *'
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      target_image:
+        description: 'Target image to build (e.g., rust-common, rust-wasm, or "all")'
+        required: true
+        default: 'all'
+        type: string
+      push:
+        description: 'Push images to GitHub Container Registry (ghcr.io)'
+        required: true
+        default: true
+        type: boolean
+      extra_tag:
+        description: 'Optional additional tag (e.g., v1.0.0)'
+        required: false
+        default: ''
+        type: string
+
+  # Automatically trigger on push to main branch when images or workflow change
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'images/**'
+      - '.github/workflows/**'
+      - 'scripts/**'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 1. Discover all images under images/ directory
+  # --------------------------------------------------------------------------
+  discover-images:
+    name: Discover Images
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      should_push: ${{ steps.set-params.outputs.should_push }}
+      extra_tag: ${{ steps.set-params.outputs.extra_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Determine parameters
+        id: set-params
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_push=${{ inputs.push }}" >> $GITHUB_OUTPUT
+            echo "extra_tag=${{ inputs.extra_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "should_push=true" >> $GITHUB_OUTPUT
+            echo "extra_tag=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Scan images directory
+        id: set-matrix
+        env:
+          TARGET_IMAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.target_image || 'all' }}
+        run: |
+          python3 scripts/discover_images.py --target "${TARGET_IMAGE}" --github-output "${GITHUB_OUTPUT}"
+
+  # --------------------------------------------------------------------------
+  # 2. Call reusable workflow to build each image multi-arch natively
+  # --------------------------------------------------------------------------
+  build-images:
+    name: Build
+    needs: discover-images
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover-images.outputs.matrix) }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: ${{ matrix.image_name }}
+      context: ${{ matrix.context }}
+      dockerfile: ${{ matrix.dockerfile }}
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit

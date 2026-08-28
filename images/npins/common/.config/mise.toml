@@ -1,0 +1,25 @@
+[settings]
+minimum_release_age = "1h"
+
+[tools]
+python = "latest"
+
+# AI 工具
+"npm:@openai/codex" = {
+    version = "latest",
+    depends = ["node"],
+}
+"aqua:anomalyco/opencode" = {
+    version = "latest",
+}
+"aqua:google-antigravity/antigravity-cli" = {
+    version = "latest",
+}
+"aqua:anthropics/claude-code" = {
+    version = "latest",
+}
+
+# 实用工具
+jq = "latest"
+ripgrep = "latest"
+gh = "latest"
