@@ -1,0 +1,58 @@
+services:
+  # Base configuration for the application
+  app-base: &app-base
+    image: ghcr.io/shaogme/coding-images/npins-rust:latest
+    environment:
+      - ROOT_PASSWORD=root # Set your secure password here
+      - MISE_YES=1 # Non-interactive mode for mise
+      - CARGO_INCREMENTAL=1 # Enable incremental compilation for Rust builds
+    security_opt:
+      - seccomp:unconfined # Required for some low-level operations
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+      - NET_ADMIN
+    tty: true
+
+  # Develop mode: Mounts local directory for hot-reloading (Default)
+  dev:
+    <<: *app-base
+    container_name: npins-rust-dev
+    volumes:
+      # Mount host source code
+      - .:/root/workspace
+      # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
+      - rust-target:/root/workspace/target
+      # Persist Cargo dependencies, crate index, and git checkouts
+      - cargo-cache:/root/.cargo
+      # Persist codex configuration
+      - codex-config:/root/.codex
+      - gemini-config:/root/.gemini
+      - opencode-config:/root/.config/opencode
+      - claude-config:/root/.claude
+
+  # Standalone mode: Uses code copied into the image (No host mounting)
+  standalone:
+    <<: *app-base
+    container_name: npins-rust-standalone
+    volumes:
+      # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
+      - rust-target:/root/workspace/target
+      # Persist Cargo dependencies, crate index, and git checkouts
+      - cargo-cache:/root/.cargo
+      # Persist codex configuration
+      - codex-config:/root/.codex
+      - gemini-config:/root/.gemini
+      - opencode-config:/root/.config/opencode
+      - claude-config:/root/.claude
+    profiles:
+      - standalone
+
+volumes:
+  rust-target:
+  cargo-cache:
+  mise-cache:
+  codex-config:
+  gemini-config:
+  opencode-config:
+  claude-config:
