@@ -15,6 +15,11 @@ on:
         description: 'Path to Dockerfile'
         required: true
         type: string
+      build_args:
+        description: 'Optional build-args to pass to docker build'
+        required: false
+        default: ''
+        type: string
       push:
         description: 'Push image to registry'
         required: false
@@ -78,6 +83,8 @@ jobs:
         with:
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
+          build-args: ${{ inputs.build_args }}
+          pull: true
           platforms: ${{ matrix.platform }}
           outputs: ${{ inputs.push && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.image_base) || 'type=image,push=false' }}
           cache-from: type=gha,scope=${{ inputs.image_name }}-${{ matrix.arch }}

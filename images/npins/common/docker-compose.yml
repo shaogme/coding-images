@@ -20,6 +20,8 @@ services:
     volumes:
       # Mount host source code
       - .:/root/workspace
+      # Persist direnv data
+      - direnv-data:/root/.local/share/direnv
       # Persist codex configuration
       - codex-config:/root/.codex
       - gemini-config:/root/.gemini
@@ -31,6 +33,8 @@ services:
     <<: *app-base
     container_name: npins-common-standalone
     volumes:
+      # Persist direnv data
+      - direnv-data:/root/.local/share/direnv
       # Persist codex configuration
       - codex-config:/root/.codex
       - gemini-config:/root/.gemini
@@ -41,6 +45,7 @@ services:
 
 volumes:
   mise-cache:
+  direnv-data:
   codex-config:
   gemini-config:
   opencode-config:

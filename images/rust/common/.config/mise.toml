@@ -1,18 +1,4 @@
-[settings]
-minimum_release_age = "1h"
-
 [tools]
-node = { version = "latest" }
-pnpm = {
-    version = "latest",
-    depends = ["node"],
-}
-yarn = {
-    version = "latest",
-    depends = ["node"],
-}
-
-python = "latest"
 rust = [
     {
         version = "stable",
@@ -24,21 +10,6 @@ rust = [
     },
 ]
 
-# AI 工具
-"npm:@openai/codex" = {
-    version = "latest",
-    depends = ["node"],
-}
-"aqua:anomalyco/opencode" = {
-    version = "latest",
-}
-"aqua:google-antigravity/antigravity-cli" = {
-    version = "latest",
-}
-"aqua:anthropics/claude-code" = {
-    version = "latest",
-}
-
 # Rust 工具
 "cargo:cargo-nextest" = {
     version = "latest",
@@ -49,8 +20,3 @@ rust = [
     version = "latest",
     depends = ["rust"],
 }
-
-# 实用工具
-jq = "latest"
-ripgrep = "latest"
-gh = "latest"

@@ -25,6 +25,8 @@ services:
       - rust-target:/root/workspace/target
       # Persist Cargo dependencies, crate index, and git checkouts
       - cargo-cache:/root/.cargo
+      # Persist direnv data
+      - direnv-data:/root/.local/share/direnv
       # Persist codex configuration
       - codex-config:/root/.codex
       - gemini-config:/root/.gemini
@@ -40,6 +42,8 @@ services:
       - rust-target:/root/workspace/target
       # Persist Cargo dependencies, crate index, and git checkouts
       - cargo-cache:/root/.cargo
+      # Persist direnv data
+      - direnv-data:/root/.local/share/direnv
       # Persist codex configuration
       - codex-config:/root/.codex
       - gemini-config:/root/.gemini
@@ -52,6 +56,7 @@ volumes:
   rust-target:
   cargo-cache:
   mise-cache:
+  direnv-data:
   codex-config:
   gemini-config:
   opencode-config:

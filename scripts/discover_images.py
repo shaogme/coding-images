@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script: scripts/discover_images.py
-Description: Scans the images/ directory for Docker images and outputs matrix configurations for CI/CD workflows.
+Description: Scans the images/ directory for Docker images and outputs staged matrix configurations for CI/CD workflows.
 """
 
 import argparse
@@ -9,6 +9,15 @@ import json
 import os
 import sys
 from pathlib import Path
+
+# Dependency graph defining inheritance stages and parent images
+IMAGE_DEPENDENCY_GRAPH = {
+    "common": {"stage": 0, "parent": None},
+    "npins-common": {"stage": 1, "parent": "common"},
+    "rust-common": {"stage": 1, "parent": "common"},
+    "npins-rust": {"stage": 2, "parent": "rust-common"},
+    "rust-wasm": {"stage": 2, "parent": "rust-common"},
+}
 
 
 def discover_images(images_dir: str, target_filter: str = "all") -> list:
@@ -56,16 +65,42 @@ def discover_images(images_dir: str, target_filter: str = "all") -> list:
                 rel_context = context_dir.as_posix()
                 rel_dockerfile = df.as_posix()
 
+            dep_info = IMAGE_DEPENDENCY_GRAPH.get(image_name, {"stage": 0, "parent": None})
+
             images.append({
                 "image_name": image_name,
                 "context": rel_context,
                 "dockerfile": rel_dockerfile,
-                "rel_path": rel_path
+                "rel_path": rel_path,
+                "stage": dep_info.get("stage", 0),
+                "parent": dep_info.get("parent")
             })
 
-    # Sort deterministically by image name
-    images.sort(key=lambda x: x["image_name"])
+    # Sort deterministically by stage then image name
+    images.sort(key=lambda x: (x["stage"], x["image_name"]))
     return images
+
+
+def get_staged_matrices(images: list, is_single_target: bool):
+    """
+    Groups images by build stage.
+    If targeting a specific single image, assign it to stage 0 for immediate building.
+    """
+    if is_single_target:
+        # Build the requested target directly in stage 0 (it will pull existing base image from GHCR)
+        return {
+            0: images,
+            1: [],
+            2: [],
+        }
+
+    stages = {0: [], 1: [], 2: []}
+    for img in images:
+        stage = img.get("stage", 0)
+        if stage not in stages:
+            stages[stage] = []
+        stages[stage].append(img)
+    return stages
 
 
 def main():
@@ -84,15 +119,15 @@ def main():
     )
     parser.add_argument(
         "-f", "--format",
-        choices=["matrix", "json", "names"],
+        choices=["matrix", "json", "names", "stages"],
         default="matrix",
-        help="Output format: 'matrix' (GitHub Actions matrix json), 'json' (raw list), or 'names' (default: matrix)."
+        help="Output format: 'matrix' (GitHub Actions matrix json), 'json' (raw list), 'names', or 'stages'."
     )
     parser.add_argument(
         "--github-output",
         nargs="?",
         const=os.environ.get("GITHUB_OUTPUT", ""),
-        help="Write matrix JSON to the specified GitHub output file or $GITHUB_OUTPUT."
+        help="Write matrix JSON and staged matrices to the specified GitHub output file or $GITHUB_OUTPUT."
     )
 
     args = parser.parse_args()
@@ -103,7 +138,12 @@ def main():
         print(f"Error: No images found matching target '{args.target}'.", file=sys.stderr)
         sys.exit(1)
 
+    is_single_target = args.target not in ("all", "*", "")
+    staged = get_staged_matrices(images, is_single_target)
+
     print(f"Discovered {len(images)} image(s): {[img['image_name'] for img in images]}", file=sys.stderr)
+    for st_num, st_imgs in sorted(staged.items()):
+        print(f"  - Stage {st_num}: {[img['image_name'] for img in st_imgs]}", file=sys.stderr)
 
     # Format matrix structure for GitHub Actions
     matrix_data = {"include": images}
@@ -114,11 +154,19 @@ def main():
         with open(args.github_output, "a", encoding="utf-8") as f:
             f.write(f"matrix={matrix_json}\n")
             f.write(f"count={len(images)}\n")
-        print(f"Written matrix to GitHub Output: {args.github_output}", file=sys.stderr)
+            for st_num in (0, 1, 2):
+                st_imgs = staged.get(st_num, [])
+                st_json = json.dumps({"include": st_imgs})
+                f.write(f"stage_{st_num}={st_json}\n")
+                f.write(f"has_stage_{st_num}={'true' if st_imgs else 'false'}\n")
+                f.write(f"count_stage_{st_num}={len(st_imgs)}\n")
+        print(f"Written staged matrices to GitHub Output: {args.github_output}", file=sys.stderr)
 
     # Output to stdout
     if args.format == "matrix":
         print(matrix_json)
+    elif args.format == "stages":
+        print(json.dumps({k: {"include": v} for k, v in staged.items()}, indent=2))
     elif args.format == "json":
         print(json.dumps(images, indent=2))
     elif args.format == "names":

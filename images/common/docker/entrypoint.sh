@@ -11,6 +11,15 @@ if [ -d "$WORKSPACE" ]; then
     cd "$WORKSPACE"
 fi
 
+USER_HOME="${HOME:-/root}"
+
+# Ensure PNPM and Cargo environment paths are properly configured
+if [ -n "$PNPM_HOME" ]; then
+    export PATH="$PNPM_HOME/bin:$PNPM_HOME:$USER_HOME/.cargo/bin:$USER_HOME/.nix-profile/bin:$PATH"
+else
+    export PATH="$USER_HOME/.cargo/bin:$USER_HOME/.nix-profile/bin:$PATH"
+fi
+
 # Candidate workspace configuration files in order of precedence:
 # 1. mise.local.toml / mise.<env>.local.toml (and .mise.*.local.toml)
 # 2. mise.toml / mise.<env>.toml (and .mise.*.toml)
@@ -86,17 +95,21 @@ if [ -n "$FOUND_PATH" ]; then
     CONFIG_FOUND=1
 fi
 
-export PNPM_HOME="${PNPM_HOME:-/root/.local/share/pnpm}"
-export PATH="$PNPM_HOME/bin:$PNPM_HOME:/root/.cargo/bin:/root/.nix-profile/bin:$PATH"
-export MISE_YES=1
-export FONTCONFIG_PATH="${FONTCONFIG_PATH:-/root/.nix-profile/etc/fonts}"
-export FONTCONFIG_FILE="${FONTCONFIG_FILE:-/root/.nix-profile/etc/fonts/fonts.conf}"
-export MOZ_HEADLESS=1
-export LIBGL_ALWAYS_SOFTWARE=1
+# Ensure direnv configuration and workspace whitelist are in place
+mkdir -p "$USER_HOME/.config/direnv" "$USER_HOME/.local/share/direnv"
+if [ ! -f "$USER_HOME/.config/direnv/direnv.toml" ]; then
+    printf '[whitelist]\nprefix = [ "/root/workspace", "%s" ]\n' "$WORKSPACE" > "$USER_HOME/.config/direnv/direnv.toml"
+fi
+if [ ! -f "$USER_HOME/.config/direnv/direnvrc" ]; then
+    printf 'type -P mise &>/dev/null && eval "$(mise direnv activate 2>/dev/null || true)"\n' > "$USER_HOME/.config/direnv/direnvrc"
+fi
 
-# Ensure ~/.bashrc hooks mise for interactive subshells and VS Code terminal sessions
-if [ ! -f /root/.bashrc ] || ! grep -q "mise activate" /root/.bashrc; then
-    echo 'eval "$(mise activate bash)"' >> /root/.bashrc
+# Ensure ~/.bashrc hooks mise and direnv for interactive subshells and VS Code terminal sessions
+if [ ! -f "$USER_HOME/.bashrc" ] || ! grep -q "mise activate" "$USER_HOME/.bashrc"; then
+    echo 'eval "$(mise activate bash)"' >> "$USER_HOME/.bashrc"
+fi
+if [ ! -f "$USER_HOME/.bashrc" ] || ! grep -q "direnv hook" "$USER_HOME/.bashrc"; then
+    echo 'eval "$(direnv hook bash)"' >> "$USER_HOME/.bashrc"
 fi
 
 if [ $CONFIG_FOUND -eq 1 ]; then
@@ -106,15 +119,28 @@ if [ $CONFIG_FOUND -eq 1 ]; then
     mise install || true
 else
     echo "[mise-entrypoint] No workspace-specific mise configuration found in $WORKSPACE."
-    echo "[mise-entrypoint] Using global mise configuration (~/.config/mise/config.toml)."
+    echo "[mise-entrypoint] Using global mise configurations (~/.config/mise/conf.d/*.toml)."
 fi
 
 # Load mise environment variables into current shell so child processes inherit them
 eval "$(mise env -s bash 2>/dev/null || true)"
 
-# Pre-fetch all Cargo dependencies if Cargo.lock has changed or is newly mounted
-if [ -f "Cargo.lock" ]; then
-    LOCK_HASH_FILE="/root/.cargo/.silex_cargo_lock_hash"
+# Workspace direnv auto-loading: detect .envrc and export environment
+DIRENV_CONFIG_FOUND=0
+if [ -f ".envrc" ] || [ -f ".envrc.local" ] || compgen -G ".envrc.*" > /dev/null 2>&1; then
+    DIRENV_CONFIG_FOUND=1
+fi
+
+if [ $DIRENV_CONFIG_FOUND -eq 1 ] && (command -v direnv >/dev/null 2>&1 || mise which direnv >/dev/null 2>&1); then
+    echo "[mise-entrypoint] Found workspace direnv configuration (.envrc). Initializing direnv..."
+    direnv allow "$WORKSPACE" 2>/dev/null || direnv allow . 2>/dev/null || true
+    eval "$(direnv export bash 2>/dev/null || true)"
+    echo "[mise-entrypoint] Direnv environment loaded."
+fi
+
+# Pre-fetch all Cargo dependencies if Cargo.lock exists and cargo tool is available
+if [ -f "Cargo.lock" ] && (command -v cargo >/dev/null 2>&1 || mise which cargo >/dev/null 2>&1); then
+    LOCK_HASH_FILE="$USER_HOME/.cargo/.silex_cargo_lock_hash"
     CURRENT_HASH=$(sha256sum Cargo.lock 2>/dev/null | awk '{print $1}')
     SAVED_HASH=$(cat "$LOCK_HASH_FILE" 2>/dev/null || echo "")
 
@@ -122,13 +148,13 @@ if [ -f "Cargo.lock" ]; then
         echo "[mise-entrypoint] Cargo.lock change detected."
         echo "[mise-entrypoint] Pre-fetching all Cargo dependencies..."
         cargo fetch --locked 2>/dev/null || mise exec -- cargo fetch --locked 2>/dev/null || true
-        mkdir -p /root/.cargo
+        mkdir -p "$USER_HOME/.cargo"
         echo "$CURRENT_HASH" > "$LOCK_HASH_FILE"
         echo "[mise-entrypoint] Cargo dependencies synchronized."
     fi
 fi
 
-echo "[mise-entrypoint] Mise environment ready."
+echo "[mise-entrypoint] Mise & Direnv environment ready."
 
 # Hand over execution to the base NixOS container entrypoint
 exec /bin/entrypoint.sh "$@"

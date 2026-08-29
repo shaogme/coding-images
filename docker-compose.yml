@@ -33,25 +33,6 @@ services:
       - opencode-config:/root/.config/opencode
       - claude-config:/root/.claude
 
-  # Standalone mode: Uses code copied into the image (No host mounting)
-  standalone:
-    <<: *app-base
-    container_name: rust-common-standalone
-    volumes:
-      # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
-      - rust-target:/root/workspace/target
-      # Persist Cargo dependencies, crate index, and git checkouts
-      - cargo-cache:/root/.cargo
-      # Persist direnv data
-      - direnv-data:/root/.local/share/direnv
-      # Persist codex configuration
-      - codex-config:/root/.codex
-      - gemini-config:/root/.gemini
-      - opencode-config:/root/.config/opencode
-      - claude-config:/root/.claude
-    profiles:
-      - standalone
-
 volumes:
   rust-target:
   cargo-cache:

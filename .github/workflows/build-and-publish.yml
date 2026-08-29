@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       target_image:
-        description: 'Target image to build (e.g., rust-common, rust-wasm, or "all")'
+        description: 'Target image to build (e.g., common, rust-common, rust-wasm, or "all")'
         required: true
         default: 'all'
         type: string
@@ -44,13 +44,18 @@ concurrency:
 
 jobs:
   # --------------------------------------------------------------------------
-  # 1. Discover all images under images/ directory
+  # 1. Discover all images and group into staged matrices
   # --------------------------------------------------------------------------
   discover-images:
     name: Discover Images
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      stage_0: ${{ steps.set-matrix.outputs.stage_0 }}
+      stage_1: ${{ steps.set-matrix.outputs.stage_1 }}
+      stage_2: ${{ steps.set-matrix.outputs.stage_2 }}
+      has_stage_0: ${{ steps.set-matrix.outputs.has_stage_0 }}
+      has_stage_1: ${{ steps.set-matrix.outputs.has_stage_1 }}
+      has_stage_2: ${{ steps.set-matrix.outputs.has_stage_2 }}
       should_push: ${{ steps.set-params.outputs.should_push }}
       extra_tag: ${{ steps.set-params.outputs.extra_tag }}
     steps:
@@ -68,7 +73,7 @@ jobs:
             echo "extra_tag=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Scan images directory
+      - name: Scan images directory and group stages
         id: set-matrix
         env:
           TARGET_IMAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.target_image || 'all' }}
@@ -76,14 +81,53 @@ jobs:
           python3 scripts/discover_images.py --target "${TARGET_IMAGE}" --github-output "${GITHUB_OUTPUT}"
 
   # --------------------------------------------------------------------------
-  # 2. Call reusable workflow to build each image multi-arch natively
+  # 2. Stage 0: Base image (common)
   # --------------------------------------------------------------------------
-  build-images:
-    name: Build
+  build-stage-0:
+    name: Stage 0
     needs: discover-images
+    if: needs.discover-images.outputs.has_stage_0 == 'true'
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.discover-images.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.discover-images.outputs.stage_0) }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: ${{ matrix.image_name }}
+      context: ${{ matrix.context }}
+      dockerfile: ${{ matrix.dockerfile }}
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  # --------------------------------------------------------------------------
+  # 3. Stage 1: Layer 1 images based on common (rust-common, npins-common)
+  # --------------------------------------------------------------------------
+  build-stage-1:
+    name: Stage 1
+    needs: [discover-images, build-stage-0]
+    if: always() && needs.discover-images.outputs.has_stage_1 == 'true' && (needs.build-stage-0.result == 'success' || needs.discover-images.outputs.has_stage_0 != 'true')
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover-images.outputs.stage_1) }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: ${{ matrix.image_name }}
+      context: ${{ matrix.context }}
+      dockerfile: ${{ matrix.dockerfile }}
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  # --------------------------------------------------------------------------
+  # 4. Stage 2: Layer 2 images based on rust-common (rust-wasm, npins-rust)
+  # --------------------------------------------------------------------------
+  build-stage-2:
+    name: Stage 2
+    needs: [discover-images, build-stage-1]
+    if: always() && needs.discover-images.outputs.has_stage_2 == 'true' && (needs.build-stage-1.result == 'success' || needs.discover-images.outputs.has_stage_1 != 'true')
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover-images.outputs.stage_2) }}
     uses: ./.github/workflows/build-single-image.yml
     with:
       image_name: ${{ matrix.image_name }}
