@@ -1,5 +1,6 @@
 [settings]
 minimum_release_age = "1h"
+yes = true
 
 [tools]
 python = "latest"

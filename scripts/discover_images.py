@@ -20,6 +20,24 @@ IMAGE_DEPENDENCY_GRAPH = {
 }
 
 
+def get_ancestors(image_name: str) -> list:
+    """Computes the ordered list of ancestor images up to 'global' base."""
+    ancestors = []
+    curr = image_name
+    while True:
+        dep = IMAGE_DEPENDENCY_GRAPH.get(curr)
+        if not dep:
+            break
+        parent = dep.get("parent")
+        if not parent:
+            break
+        ancestors.append(parent)
+        curr = parent
+    if "global" not in ancestors:
+        ancestors.append("global")
+    return ancestors
+
+
 def discover_images(images_dir: str, target_filter: str = "all") -> list:
     images_path = Path(images_dir).resolve()
     if not images_path.exists() or not images_path.is_dir():
@@ -66,6 +84,7 @@ def discover_images(images_dir: str, target_filter: str = "all") -> list:
                 rel_dockerfile = df.as_posix()
 
             dep_info = IMAGE_DEPENDENCY_GRAPH.get(image_name, {"stage": 0, "parent": None})
+            ancestors = get_ancestors(image_name)
 
             images.append({
                 "image_name": image_name,
@@ -73,7 +92,8 @@ def discover_images(images_dir: str, target_filter: str = "all") -> list:
                 "dockerfile": rel_dockerfile,
                 "rel_path": rel_path,
                 "stage": dep_info.get("stage", 0),
-                "parent": dep_info.get("parent")
+                "parent": dep_info.get("parent"),
+                "ancestors": json.dumps(ancestors)
             })
 
     # Sort deterministically by stage then image name

@@ -1,3 +1,8 @@
+[settings.cargo]
+binstall = true
+binstall_native = true
+binstall_quickinstall = true
+
 [tools]
 rust = [
     {
@@ -11,12 +16,12 @@ rust = [
 ]
 
 # Rust 工具
-"cargo:cargo-nextest" = {
+"cargo:cargo-binstall" = {
     version = "latest",
     depends = ["rust"],
 }
 
-"cargo:cargo-binstall" = {
+"cargo:cargo-nextest" = {
     version = "latest",
-    depends = ["rust"],
+    depends = ["cargo:cargo-binstall"],
 }

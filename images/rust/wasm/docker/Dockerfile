@@ -1,11 +1,12 @@
 ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/rust-common:latest
 FROM ${BASE_IMAGE}
+ARG TARGETARCH
 
 WORKDIR /root/workspace
 
 # Install WebAssembly and headless browser testing packages via nix-env
-RUN --mount=type=cache,target=/root/.cache/nix \
-    --mount=type=cache,target=/tmp \
+RUN --mount=type=cache,id=nix-cache,target=/root/.cache/nix,sharing=shared \
+    --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
     echo "sandbox = false" >> /etc/nix/nix.conf && \
     nix-env --option sandbox false -iA \
         nixpkgs.fontconfig \
@@ -58,9 +59,12 @@ RUN set -e; \
 COPY .config/mise.toml /root/.config/mise/conf.d/30-wasm.toml
 
 # Declaratively lock global toolchain versions and pre-install WebAssembly tools/targets
-RUN --mount=type=cache,target=/root/.cache/mise \
-    --mount=type=cache,target=/root/.cargo/registry \
-    --mount=type=cache,target=/root/.cargo/git \
+RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+    --mount=type=cache,id=mise-cache-${TARGETARCH},target=/root/.cache/mise,sharing=shared \
+    --mount=type=cache,id=cargo-registry,target=/root/.cargo/registry,sharing=shared \
+    --mount=type=cache,id=cargo-git,target=/root/.cargo/git,sharing=shared \
+    --mount=type=cache,id=cargo-target-${TARGETARCH},target=/root/.cargo/target,sharing=shared \
+    --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
     set -e; \
     echo "Locking global toolchain specifications and WebAssembly targets..."; \
     mise trust --all; \

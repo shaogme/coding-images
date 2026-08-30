@@ -30,6 +30,11 @@ on:
         required: false
         default: ''
         type: string
+      ancestors:
+        description: 'JSON array string of ancestor images for cache cascade'
+        required: false
+        default: '["global"]'
+        type: string
 
 jobs:
   # --------------------------------------------------------------------------
@@ -61,21 +66,48 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        if: inputs.push
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata & image base name
+      - name: Extract metadata & configure multi-tier cache
         id: meta
         env:
           REPO_LOWER: ${{ github.repository }}
+          ANCESTORS: ${{ inputs.ancestors }}
         run: |
           REPO_LOWER=$(echo "$REPO_LOWER" | tr '[:upper:]' '[:lower:]')
           IMAGE_BASE="ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}"
+          CACHE_REPO="ghcr.io/${REPO_LOWER}/buildcache"
+          ARCH="${{ matrix.arch }}"
+          IMAGE="${{ inputs.image_name }}"
+          
           echo "image_base=${IMAGE_BASE}" >> $GITHUB_OUTPUT
+          echo "cache_repo=${CACHE_REPO}" >> $GITHUB_OUTPUT
+
+          # Build multi-layer cache-from sources (GHA + GHCR registry)
+          CACHE_SOURCES="type=gha,scope=${IMAGE}-${ARCH}\n"
+          CACHE_SOURCES="${CACHE_SOURCES}type=registry,ref=${CACHE_REPO}:${IMAGE}-${ARCH}\n"
+
+          if [ -n "$ANCESTORS" ] && [ "$ANCESTORS" != "null" ]; then
+            for anc in $(echo "$ANCESTORS" | jq -r '.[]? // empty'); do
+              if [ -n "$anc" ] && [ "$anc" != "$IMAGE" ]; then
+                CACHE_SOURCES="${CACHE_SOURCES}type=gha,scope=${anc}-${ARCH}\n"
+                CACHE_SOURCES="${CACHE_SOURCES}type=registry,ref=${CACHE_REPO}:${anc}-${ARCH}\n"
+              fi
+            done
+          fi
+
+          CACHE_SOURCES="${CACHE_SOURCES}type=gha,scope=common-${ARCH}\n"
+          CACHE_SOURCES="${CACHE_SOURCES}type=registry,ref=${CACHE_REPO}:common-${ARCH}\n"
+          CACHE_SOURCES="${CACHE_SOURCES}type=gha,scope=global-${ARCH}\n"
+          CACHE_SOURCES="${CACHE_SOURCES}type=registry,ref=${CACHE_REPO}:global-${ARCH}\n"
+
+          echo "cache_from<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$CACHE_SOURCES" | awk '!seen[$0]++' >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build and push by digest
         id: build
@@ -84,11 +116,13 @@ jobs:
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           build-args: ${{ inputs.build_args }}
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           pull: true
           platforms: ${{ matrix.platform }}
           outputs: ${{ inputs.push && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.image_base) || 'type=image,push=false' }}
-          cache-from: type=gha,scope=${{ inputs.image_name }}-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ inputs.image_name }}-${{ matrix.arch }}
+          cache-from: ${{ steps.meta.outputs.cache_from }}
+          cache-to: ${{ inputs.push && format('type=gha,mode=max,scope={0}-{1}\ntype=registry,ref={2}:{0}-{1},mode=max,image-manifest=true', inputs.image_name, matrix.arch, steps.meta.outputs.cache_repo) || format('type=gha,mode=max,scope={0}-{1}', inputs.image_name, matrix.arch) }}
           labels: |
             org.opencontainers.image.title=${{ inputs.image_name }}
             org.opencontainers.image.description=Coding environment image for ${{ inputs.image_name }} (${{ matrix.arch }})

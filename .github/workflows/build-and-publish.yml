@@ -95,6 +95,7 @@ jobs:
       image_name: ${{ matrix.image_name }}
       context: ${{ matrix.context }}
       dockerfile: ${{ matrix.dockerfile }}
+      ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
     secrets: inherit
@@ -114,6 +115,7 @@ jobs:
       image_name: ${{ matrix.image_name }}
       context: ${{ matrix.context }}
       dockerfile: ${{ matrix.dockerfile }}
+      ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
     secrets: inherit
@@ -133,6 +135,7 @@ jobs:
       image_name: ${{ matrix.image_name }}
       context: ${{ matrix.context }}
       dockerfile: ${{ matrix.dockerfile }}
+      ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
     secrets: inherit
