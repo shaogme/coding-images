@@ -69,7 +69,8 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     echo "Locking global toolchain specifications and WebAssembly targets..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
-    mise install;
+    mise install; \
+    rustup target add wasm32-unknown-unknown --toolchain nightly;
 
 # Default command passed to entrypoint (inherited from common base)
 CMD []

@@ -22,7 +22,8 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
-    mise install;
+    mise install; \
+    rustup toolchain install nightly --component rust-src;
 
 # Default command passed to entrypoint (inherited from common base)
 CMD []

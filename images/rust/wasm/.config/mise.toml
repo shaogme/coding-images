@@ -4,18 +4,11 @@ binstall_native = true
 binstall_quickinstall = true
 
 [tools]
-rust = [
-    {
-        version = "stable",
-        components = ["rust-src"],
-        targets = ["wasm32-unknown-unknown"],
-    },
-    {
-        version = "nightly",
-        components = ["rust-src"],
-        targets = ["wasm32-unknown-unknown"],
-    },
-]
+rust = {
+    version = "stable",
+    components = ["rust-src"],
+    targets = ["wasm32-unknown-unknown"],
+}
 
 # WebAssembly 工具
 "cargo:wasmi_cli" = {
