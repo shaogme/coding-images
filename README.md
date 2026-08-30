@@ -176,8 +176,8 @@ flowchart TB
 1. **配置模块化**：各镜像通过 `/root/.config/mise/conf.d/` 独立挂载增量配置：
    - `10-common.toml` -> 由 `common` 注入
    - `20-rust.toml` -> 由 `rust-common` 注入
-   - `30-wasm.toml` -> 由 `rust-wasm` 注入
-2. **零配置覆盖**：Mise 原生按字母序自动合并所有 `.toml`，子镜像只需声明增量工具，无需复制或覆盖父镜像配置。
+   - `30-wasm.toml` -> 由 `rust-wasm` 注入（继承并添加 Rust WebAssembly targets）
+2. **全局版本锁定（Global Lockfile）**：各镜像在构建时通过 `mise lock --global` 固化当前工具链的确定性版本与 options/targets 元数据，杜绝 `nightly` 跨天版本漂移与 Target 继承丢失。
 
 ### 统一智能 Entrypoint 引导流程
 

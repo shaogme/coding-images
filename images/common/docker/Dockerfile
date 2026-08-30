@@ -26,15 +26,13 @@ RUN mkdir -p /root/.config/direnv /root/.local/share/direnv && \
 RUN mkdir -p /root/.config/mise/conf.d
 COPY .config/mise.toml /root/.config/mise/conf.d/10-common.toml
 
-# Pre-install global common mise tools
+# Pre-install global common mise tools and lock global tool versions
 RUN --mount=type=cache,target=/root/.cache/mise \
     set -e; \
     echo "Pre-installing common mise tools during docker build..."; \
     mise trust --all; \
+    mise lock --global --platform linux-x64,linux-arm64; \
     mise install;
-
-# 2. Copy the rest of the workspace source code
-COPY . /root/workspace/
 
 # Set the custom entrypoint
 ENTRYPOINT ["/usr/local/bin/mise-entrypoint.sh"]

@@ -120,6 +120,7 @@ if [ $CONFIG_FOUND -eq 1 ]; then
 else
     echo "[mise-entrypoint] No workspace-specific mise configuration found in $WORKSPACE."
     echo "[mise-entrypoint] Using global mise configurations (~/.config/mise/conf.d/*.toml)."
+    mise trust --all 2>/dev/null || true
 fi
 
 # Load mise environment variables into current shell so child processes inherit them

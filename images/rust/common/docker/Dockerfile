@@ -10,17 +10,15 @@ ENV PNPM_HOME=/root/.local/share/pnpm \
 # 1. Copy Rust & Node delta mise configuration into conf.d
 COPY .config/mise.toml /root/.config/mise/conf.d/20-rust.toml
 
-# Pre-install global Rust tools and toolchains with BuildKit cache mounts
+# Pre-install global Rust tools and toolchains with BuildKit cache mounts and lock toolchain
 RUN --mount=type=cache,target=/root/.cache/mise \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     set -e; \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
     mise trust --all; \
+    mise lock --global --platform linux-x64,linux-arm64; \
     mise install;
-
-# 2. Copy the rest of the workspace source code
-COPY . /root/workspace/
 
 # Default command passed to entrypoint (inherited from common base)
 CMD []

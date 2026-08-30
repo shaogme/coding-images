@@ -55,20 +55,17 @@ RUN set -e; \
         echo '}'; \
     } > /etc/firefox/policies/policies.json
 
-# 1. Copy WebAssembly delta mise configuration into conf.d
 COPY .config/mise.toml /root/.config/mise/conf.d/30-wasm.toml
 
-# Pre-install WebAssembly tools and Rust targets with BuildKit cache mounts
+# Declaratively lock global toolchain versions and pre-install WebAssembly tools/targets
 RUN --mount=type=cache,target=/root/.cache/mise \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     set -e; \
-    echo "Pre-installing WebAssembly tools and targets during docker build..."; \
+    echo "Locking global toolchain specifications and WebAssembly targets..."; \
     mise trust --all; \
+    mise lock --global --platform linux-x64,linux-arm64; \
     mise install;
-
-# 2. Copy the rest of the workspace source code
-COPY . /root/workspace/
 
 # Default command passed to entrypoint (inherited from common base)
 CMD []

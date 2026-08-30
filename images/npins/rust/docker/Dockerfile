@@ -10,8 +10,5 @@ RUN --mount=type=cache,target=/root/.cache/nix \
     nix-env --option sandbox false -iA \
         nixpkgs.npins
 
-# Copy workspace source code
-COPY . /root/workspace/
-
 # Default command passed to entrypoint (inherited from common base)
 CMD []
