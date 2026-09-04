@@ -1,0 +1,21 @@
+[settings.cargo]
+binstall = true
+binstall_native = true
+binstall_quickinstall = true
+
+[tools]
+# Rust 交叉编译核心工具
+"cargo:cross" = {
+    version = "latest",
+    depends = ["cargo:cargo-binstall"],
+}
+
+# 可选搭配：基于 Zig 的 C/C++ 交叉编译工具
+"cargo:cargo-zigbuild" = {
+    version = "latest",
+    depends = ["cargo:cargo-binstall"],
+}
+
+[env]
+# cross 原生引擎配置（同时容器内已内置 docker -> podman 伪装包装器，即便不指定引擎亦可开箱即用）
+CROSS_CONTAINER_ENGINE = "podman"

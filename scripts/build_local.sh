@@ -52,6 +52,9 @@ case "$TARGET" in
     rust-wasm)
         build_image "rust-wasm" "images/rust/wasm/docker/Dockerfile" "images/rust/wasm" "${REPO_PREFIX}/rust-common:latest"
         ;;
+    rust-cross)
+        build_image "rust-cross" "images/rust/cross/docker/Dockerfile" "images/rust/cross" "${REPO_PREFIX}/rust-common:latest"
+        ;;
     npins-rust)
         build_image "npins-rust" "images/npins/rust/docker/Dockerfile" "images/npins/rust" "${REPO_PREFIX}/rust-common:latest"
         ;;
@@ -63,8 +66,9 @@ case "$TARGET" in
         build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/common:latest"
         build_image "npins-common" "images/npins/common/docker/Dockerfile" "images/npins/common" "${REPO_PREFIX}/common:latest"
 
-        echo "==> Stage 2: Building rust-wasm & npins-rust..."
+        echo "==> Stage 2: Building rust-wasm, rust-cross & npins-rust..."
         build_image "rust-wasm" "images/rust/wasm/docker/Dockerfile" "images/rust/wasm" "${REPO_PREFIX}/rust-common:latest"
+        build_image "rust-cross" "images/rust/cross/docker/Dockerfile" "images/rust/cross" "${REPO_PREFIX}/rust-common:latest"
         build_image "npins-rust" "images/npins/rust/docker/Dockerfile" "images/npins/rust" "${REPO_PREFIX}/rust-common:latest"
         ;;
 esac

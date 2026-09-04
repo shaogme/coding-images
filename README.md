@@ -1,6 +1,6 @@
 # Coding Images
 
-Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `rust-common` / `npins-common` -> `rust-wasm` / `npins-rust`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
+Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `rust-common` / `npins-common` -> `rust-wasm` / `rust-cross` / `npins-rust`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
 
 ---
 
@@ -14,6 +14,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
   - [3. rust-common (Rust 核心开发环境)](#3-rust-common-rust-核心开发环境)
   - [4. npins-rust (Nix/npins + Rust 环境)](#4-npins-rust-nixnpins--rust-环境)
   - [5. rust-wasm (Rust WebAssembly 环境)](#5-rust-wasm-rust-webassembly-环境)
+  - [6. rust-cross (Rust 交叉编译与容器环境)](#6-rust-cross-rust-交叉编译与容器环境)
 - [镜像架构与设计机制](#镜像架构与设计机制)
   - [树状分层与 mise conf.d 模块化配置](#树状分层与-mise-confd-模块化配置)
   - [统一智能 Entrypoint 引导流程](#统一智能-entrypoint-引导流程)
@@ -64,6 +65,8 @@ flowchart TD
     
     RustWasm["【层级 2】rust-wasm<br/>• wasm32 交叉编译 Target<br/>• wasm-pack / wasm-bindgen / wasmi<br/>• Headless Firefox / geckodriver"]
     
+    RustCross["【层级 2】rust-cross<br/>• Podman (Daemonless 容器引擎)<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild / crun / fuse-overlayfs"]
+
     NpinsRust["【层级 2】npins-rust<br/>• nixpkgs.npins"]
 
     Upstream --> Common
@@ -71,6 +74,7 @@ flowchart TD
     Common --> RustCommon
     RustCommon --> NpinsRust
     RustCommon --> RustWasm
+    RustCommon --> RustCross
 
     classDef base fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
     classDef l1 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
@@ -78,7 +82,7 @@ flowchart TD
 
     class Common base;
     class NpinsCommon,RustCommon l1;
-    class NpinsRust,RustWasm l2;
+    class NpinsRust,RustWasm,RustCross l2;
 ```
 
 ---
@@ -138,6 +142,19 @@ flowchart TD
   - **WebAssembly 工具链**：`wasm-pack`、`wasm-bindgen-cli`、`wasmi_cli`
   - **环境配置**：静默 Firefox 企业策略与 Headless 渲染配置
 
+### 6. rust-cross (Rust 交叉编译与容器环境)
+
+在 `rust-common` 基础上扩展 Podman 容器运行时与 Rust 交叉编译套件，原生支持在容器内免后台守护进程执行 `cross` 多架构交叉编译。
+
+- **镜像地址**：`ghcr.io/shaogme/coding-images/rust-cross:latest`
+- **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
+- **包含 rust-common 的所有环境**，并额外增加：
+  - **系统包（Nix）**：`podman`、`crun`、`conmon`、`fuse-overlayfs`、`slirp4netns`
+  - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
+  - **Docker 命令透明伪装**：内置 `/usr/local/bin/docker` 与 `docker-compose` 包装脚本（透明转发至 Podman）及 `/var/run/docker.sock` 软链接，硬编码 `docker` 命令的各类工具（如 cross 默认逻辑、Makefile 等）无需修改即可直接运行
+  - **容器引擎配置**：预置 `/etc/containers/` 存储配置（`fuse-overlayfs` 驱动、`cgroupfs` 管理器）及 `CROSS_CONTAINER_ENGINE=podman` 环境变量
+  - **Docker Compose 支持**：提供 `devices: [/dev/fuse]` 与 `podman-containers` 独立命名卷持久化机制
+
 ---
 
 ## 镜像架构与设计机制
@@ -168,7 +185,13 @@ flowchart TB
             NixWasm["Nix: fontconfig / firefox / geckodriver"]
         end
 
+        subgraph CrossLayer["3. rust-cross 镜像层 (30-cross.toml)"]
+            CrossTools["cross / cargo-zigbuild"]
+            NixCross["Nix: podman / crun / fuse-overlayfs"]
+        end
+
         WasmLayer --> RustLayer
+        CrossLayer --> RustLayer
         RustLayer --> CommonLayer
     end
 ```
@@ -177,6 +200,7 @@ flowchart TB
    - `10-common.toml` -> 由 `common` 注入
    - `20-rust.toml` -> 由 `rust-common` 注入
    - `30-wasm.toml` -> 由 `rust-wasm` 注入（继承并添加 Rust WebAssembly targets）
+   - `30-cross.toml` -> 由 `rust-cross` 注入（继承并配置 `cross` 与 Podman 容器引擎）
 2. **全局版本锁定（Global Lockfile）**：各镜像在构建时通过 `mise lock --global` 固化当前工具链的确定性版本与 options/targets 元数据，杜绝 `nightly` 跨天版本漂移与 Target 继承丢失。
 
 ### 统一智能 Entrypoint 引导流程
@@ -333,12 +357,12 @@ flowchart TD
 
     Discover --> Stage0["阶段二: Stage 0 (Base)<br/>构建 common 多架构镜像并发布"]
     Stage0 --> Stage1["阶段三: Stage 1 (Layer 1)<br/>并行构建 rust-common 与 npins-common 并发布"]
-    Stage1 --> Stage2["阶段四: Stage 2 (Layer 2)<br/>并行构建 rust-wasm 与 npins-rust 并发布"]
+    Stage1 --> Stage2["阶段四: Stage 2 (Layer 2)<br/>并行构建 rust-wasm、rust-cross 与 npins-rust 并发布"]
 ```
 
 1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建，合并推送 Multi-Arch Manifest。
 2. **Stage 1 (Layer 1)**：并行构建基于 `common` 的 `rust-common` 与 `npins-common`。
-3. **Stage 2 (Layer 2)**：并行构建基于 `rust-common` 的 `rust-wasm` 与 `npins-rust`。
+3. **Stage 2 (Layer 2)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross` 与 `npins-rust`。
 
 ### 镜像标签管理策略
 
@@ -380,6 +404,12 @@ flowchart TD
 │       │   │   └── mise.toml        # Rust & Node 增量工具 (20-rust.toml)
 │       │   ├── docker/
 │       │   │   └── Dockerfile       # rust-common 构建规则 (FROM common)
+│       │   └── docker-compose.yml
+│       ├── cross/
+│       │   ├── .config/
+│       │   │   └── mise.toml        # 交叉编译工具与 Podman 引擎 (30-cross.toml)
+│       │   ├── docker/
+│       │   │   └── Dockerfile       # rust-cross 构建规则 (FROM rust-common)
 │       │   └── docker-compose.yml
 │       └── wasm/
 │           ├── .config/

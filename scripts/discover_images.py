@@ -17,6 +17,7 @@ IMAGE_DEPENDENCY_GRAPH = {
     "rust-common": {"stage": 1, "parent": "common"},
     "npins-rust": {"stage": 2, "parent": "rust-common"},
     "rust-wasm": {"stage": 2, "parent": "rust-common"},
+    "rust-cross": {"stage": 2, "parent": "rust-common"},
 }
 
 
