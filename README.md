@@ -40,7 +40,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - **树状分层继承架构**：镜像之间通过 `FROM` 构建继承链（`common` 作为基底，`rust-common` 继承 `common`，`rust-wasm` 继承 `rust-common`），杜绝重复下载与编译，层级复用率极高。
 - **多架构原生构建**：通过 GitHub Actions 分别在 x86_64（`ubuntu-latest`）和 ARM64（`ubuntu-24.04-arm`）运行器上原生编译打包，避免 QEMU 模拟器的性能开销，生成统一的 Multi-Arch 镜像清单。
 - **声明式与模块化环境管理**：底层借助 NixOS 基础镜像提供干净可靠的系统级依赖，用户空间通过 `mise` 的系统与全局模块化配置（`/etc/mise/conf.d/`）按层级独立注入 Node.js、Python、Rust、WebAssembly 及各类 CLI 工具。
-- **自适应 UID/GID 权限映射**：底层完全承接 NixOS 的自适应 UID/GID 权限映射机制（支持 `HOST_UID:HOST_GID` 环境变量或启动时自动探测挂载的 `/workspace` 工作区属主），使用 `gosu` 切换至匹配的本地普通用户（默认 `dev`），彻底解决宿主机代码与容器构建产物的权限冲突问题。
+- **自适应 UID/GID 权限映射**：底层完全承接 NixOS 的自适应 UID/GID 权限映射机制（支持 `HOST_UID:HOST_GID` 环境变量或启动时自动探测挂载的 `/workspace` 工作区属主），使用 `su-exec` 切换至匹配的本地普通用户（默认 `dev`），彻底解决宿主机代码与容器构建产物的权限冲突问题。
 - **全自动 direnv 深度集成**：内置 `direnv` 及其 shell hook，配合预置白名单（`/workspace`）与 `use mise` 扩展，容器启动或切换目录时自动加载 `.envrc` / 环境变量，完全免除授权弹窗。
 - **内置 AI 编程套件与统一存储**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），并通过统一数据卷与全局目录映射（`coding-config:/data/coding-config`）自动软链接汇聚 `~/.claude`、`~/.codex`、`~/.gemini` 与 `~/.config/opencode`，实现高内聚的一键凭证备份、迁移与跨镜像共享。
 - **标准化 Dev Containers 规范支持**：全量在各层级镜像中预置标准化 `.devcontainer/devcontainer.json` 配置，将安全能力（`cap_add`、`seccomp`）、环境变量及持久化挂载声明为通用工业标准，开箱即用无缝支持 VS Code、Cursor、Zed 等现代容器化 IDE。
@@ -225,7 +225,7 @@ flowchart TD
     ExportMise --> DetectDirenv{"检测工作区 direnv 配置<br/>(.envrc / .envrc.*)?"}
     DetectDirenv -- "是" --> LoadDirenv["执行 direnv allow 并运行<br/>eval $(direnv export bash)"]
     DetectDirenv -- "否" --> ExecBase
-    LoadDirenv --> ExecBase(["转交控制权至基础底座 /bin/entrypoint.sh<br/>(执行自适应 UID/GID 映射并使用 gosu 切换权限)"])
+    LoadDirenv --> ExecBase(["转交控制权至基础底座 /bin/entrypoint.sh<br/>(执行自适应 UID/GID 映射并使用 su-exec 切换权限)"])
 ```
 
 ### Direnv 深度自动加载机制
@@ -245,6 +245,7 @@ flowchart TD
 #### 统一 AI 凭证与存储映射策略
 
 为了避免在 Compose 或容器运行参数中分别声明 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.config/opencode` 等多个分散的命名卷，Coding Images 实施统一的高内聚存储映射策略：
+
 1. **全局统一存储卷**：所有 AI 编程工具的会话状态、认证 Token 与配置文件全部汇聚持久化到单一命名数据卷 `coding-config:/data/coding-config`。
 2. **启动自适应软链接**：容器启动时，入口脚本 `mise-entrypoint.sh` 自动在当前工作用户的主目录下创建指向 `/data/coding-config` 子目录的软链接：
    - `${USER_HOME}/.claude` -> `/data/coding-config/claude`
@@ -420,7 +421,8 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
 }
 ```
 
-#### 使用步骤：
+#### 使用步骤
+
 1. **VS Code / Cursor**：
    - 打开包含 `.devcontainer` 的目录（例如将对应层级的 `.devcontainer` 复制至自己的工程根目录，或直接打开本仓库）。
    - 按 `F1` 或 `Ctrl+Shift+P`，输入并执行 `Dev Containers: Reopen in Container`。
@@ -428,7 +430,6 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
 2. **Zed**：
    - 使用 Zed 打开包含 `.devcontainer/devcontainer.json` 的工程目录。
    - 在右下角或命令面板中选择 `Open in Container`，Zed 将解析标准配置并在隔离容器中启动远程开发服务。
-
 
 ---
 
