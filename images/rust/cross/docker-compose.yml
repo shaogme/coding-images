@@ -18,6 +18,7 @@ services:
       - NET_ADMIN
     devices:
       - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
+      - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
     tty: true
 
   # Develop mode: Mounts local directory for hot-reloading (Default)
