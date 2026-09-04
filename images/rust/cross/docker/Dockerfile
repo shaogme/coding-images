@@ -10,28 +10,13 @@ RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
     nix-env --option sandbox false -iA \
         nixpkgs.podman \
         nixpkgs.crun \
-        nixpkgs.conmon \
-        nixpkgs.fuse-overlayfs \
-        nixpkgs.slirp4netns
+        nixpkgs.conmon
 
-# Configure Podman container storage, cgroups, and engine defaults for in-container execution
+# Configure Podman engine defaults and container runtime for in-container execution
 ENV CROSS_CONTAINER_ENGINE=podman
 
 RUN set -e; \
-    mkdir -p /etc/containers /run/containers/storage /var/lib/containers/storage; \
-    chmod 1777 /run/containers/storage /var/lib/containers/storage; \
-    { \
-        echo '[storage]'; \
-        echo 'driver = "overlay"'; \
-        echo 'runroot = "/run/containers/storage"'; \
-        echo 'graphroot = "/var/lib/containers/storage"'; \
-        echo ''; \
-        echo '[storage.options]'; \
-        echo 'mount_program = "/nix/var/nix/profiles/default/bin/fuse-overlayfs"'; \
-        echo ''; \
-        echo '[storage.options.overlay]'; \
-        echo 'mount_program = "/nix/var/nix/profiles/default/bin/fuse-overlayfs"'; \
-    } > /etc/containers/storage.conf; \
+    mkdir -p /etc/containers; \
     { \
         echo '[containers]'; \
         echo 'cgroup_manager = "cgroupfs"'; \
@@ -42,14 +27,6 @@ RUN set -e; \
         echo 'runtime = "crun"'; \
         echo 'runtimes.crun = ["/nix/var/nix/profiles/default/bin/crun", "/usr/bin/crun"]'; \
     } > /etc/containers/containers.conf; \
-    { \
-        echo '[registries.search]'; \
-        echo 'registries = ["docker.io", "quay.io", "ghcr.io"]'; \
-    } > /etc/containers/registries.conf; \
-    echo "root:10000:65536" > /etc/subuid; \
-    echo "root:10000:65536" > /etc/subgid; \
-    echo "dev:100000:65536" >> /etc/subuid; \
-    echo "dev:100000:65536" >> /etc/subgid; \
     # Create docker and docker-compose masquerade wrappers for podman
     printf '#!/usr/bin/env bash\nexec podman "$@"\n' > /usr/local/bin/docker; \
     chmod 755 /usr/local/bin/docker; \
