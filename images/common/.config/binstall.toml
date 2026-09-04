@@ -1,8 +1,0 @@
-confirm = false
-track_installs = true
-continue_on_failure = false
-strategies = ["crate-meta-data", "quick-install", "compile"]
-
-[telemetry]
-enabled = false
-consent_asked = true

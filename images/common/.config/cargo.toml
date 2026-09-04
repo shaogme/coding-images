@@ -1,5 +1,0 @@
-[build]
-target-dir = "/root/.cargo/target"
-
-[net]
-git-fetch-with-cli = true

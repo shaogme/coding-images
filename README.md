@@ -38,10 +38,11 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 
 - **树状分层继承架构**：镜像之间通过 `FROM` 构建继承链（`common` 作为基底，`rust-common` 继承 `common`，`rust-wasm` 继承 `rust-common`），杜绝重复下载与编译，层级复用率极高。
 - **多架构原生构建**：通过 GitHub Actions 分别在 x86_64（`ubuntu-latest`）和 ARM64（`ubuntu-24.04-arm`）运行器上原生编译打包，避免 QEMU 模拟器的性能开销，生成统一的 Multi-Arch 镜像清单。
-- **声明式与模块化环境管理**：底层借助 NixOS 基础镜像提供干净可靠的系统级依赖，用户空间通过 `mise` 的 `conf.d/` 目录按层级独立注入 Node.js、Python、Rust、WebAssembly 及各类 CLI 工具。
-- **全自动 direnv 深度集成**：内置 `direnv` 及其 shell hook，配合预置白名单与 `use mise` 扩展，容器启动或切换目录时自动加载 `.envrc` / 环境变量，完全免除授权弹窗。
+- **声明式与模块化环境管理**：底层借助 NixOS 基础镜像提供干净可靠的系统级依赖，用户空间通过 `mise` 的系统与全局模块化配置（`/etc/mise/conf.d/`）按层级独立注入 Node.js、Python、Rust、WebAssembly 及各类 CLI 工具。
+- **自适应 UID/GID 权限映射**：底层完全承接 NixOS 的自适应 UID/GID 权限映射机制（支持 `HOST_UID:HOST_GID` 环境变量或启动时自动探测挂载的 `/workspace` 工作区属主），使用 `gosu` 切换至匹配的本地普通用户（默认 `dev`），彻底解决宿主机代码与容器构建产物的权限冲突问题。
+- **全自动 direnv 深度集成**：内置 `direnv` 及其 shell hook，配合预置白名单（`/workspace`）与 `use mise` 扩展，容器启动或切换目录时自动加载 `.envrc` / 环境变量，完全免除授权弹窗。
 - **内置 AI 编程套件**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），所有衍生子镜像自动继承，并通过 Docker 命名卷持久化登录凭证和会话上下文。
-- **统一自适应 Entrypoint**：统一的入口引导脚本，不仅自动探测工作区内 9 种层级的 mise 配置文件，还自动初始化与加载 direnv 环境，自适应检测 `Cargo.lock` 并进行依赖锁校验与预热，子镜像零维护。
+- **统一自适应 Entrypoint**：统一的入口引导脚本，自适应支持普通用户（`dev`）与 root 运行模式，不仅自动探测工作区内 9 种层级的 mise 配置文件，还自动初始化与加载 direnv 环境，自适应检测 `Cargo.lock` 并进行依赖锁校验与预热，子镜像零维护。
 - **完备的构建缓存优化**：Dockerfile 深度集成 BuildKit 缓存挂载（针对 Nix 缓存、mise 工具缓存、Cargo 依赖缓存等），显著加快构建与更新速度。
 
 ---
@@ -196,7 +197,7 @@ flowchart TB
     end
 ```
 
-1. **配置模块化**：各镜像通过 `/root/.config/mise/conf.d/` 独立挂载增量配置：
+1. **配置模块化**：各镜像通过全局 `/etc/mise/conf.d/` 目录独立注入增量配置：
    - `10-common.toml` -> 由 `common` 注入
    - `20-rust.toml` -> 由 `rust-common` 注入
    - `30-wasm.toml` -> 由 `rust-wasm` 注入（继承并添加 Rust WebAssembly targets）
@@ -209,35 +210,30 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    Start(["容器启动: mise-entrypoint.sh"]) --> InitDirenv["初始化 direnv 默认配置与白名单<br/>~/.config/direnv/direnv.toml & direnvrc"]
-    InitDirenv --> CheckWs["进入工作区目录 /root/workspace"]
-    CheckWs --> InjectBashrc["注入 mise activate & direnv hook 到 ~/.bashrc"]
-    InjectBashrc --> DetectConfig{"探测工作区 mise 配置文件<br/>(9 级优先级匹配)"}
+    Start(["容器启动: mise-entrypoint.sh"]) --> ResolveUser["解析自适应 UID/GID & HOME<br/>动态配置 PATH 与 CARGO_TARGET_DIR"]
+    ResolveUser --> CheckWs["进入工作区目录 /workspace"]
+    CheckWs --> DetectConfig{"探测工作区 mise 配置文件<br/>(9 级优先级匹配)"}
 
     DetectConfig -- "命中工作区配置" --> TrustInstall["执行 mise trust --all<br/>执行 mise install 安装指定依赖"]
-    DetectConfig -- "未找到工作区配置" --> UseGlobal["使用全局模块化配置<br/>~/.config/mise/conf.d/*.toml"]
+    DetectConfig -- "未找到工作区配置" --> UseGlobal["使用全局模块化配置<br/>/etc/mise/conf.d/*.toml"]
 
     TrustInstall --> ExportMise["执行 eval $(mise env -s bash)<br/>导出 mise 环境变量"]
     UseGlobal --> ExportMise
 
     ExportMise --> DetectDirenv{"检测工作区 direnv 配置<br/>(.envrc / .envrc.*)?"}
     DetectDirenv -- "是" --> LoadDirenv["执行 direnv allow 并运行<br/>eval $(direnv export bash)"]
-    DetectDirenv -- "否" --> CargoCheck
-    LoadDirenv --> CargoCheck{"检测到 cargo 且存在 Cargo.lock?"}
-
-    CargoCheck -- "是且 Hash 变更" --> SyncCargo["执行 cargo fetch --locked 预热缓存"]
-    CargoCheck -- "否" --> ExecBase(["转交控制权至基础底座 /bin/entrypoint.sh"])
-    SyncCargo --> ExecBase
+    DetectDirenv -- "否" --> ExecBase
+    LoadDirenv --> ExecBase(["转交控制权至基础底座 /bin/entrypoint.sh<br/>(执行自适应 UID/GID 映射并使用 gosu 切换权限)"])
 ```
 
 ### Direnv 深度自动加载机制
 
 1. **零阻断白名单安全机制**：
-   镜像默认在 `/root/.config/direnv/direnv.toml` 中将 `/root/workspace` 添加至 `whitelist.prefix`，开发者在宿主机挂载代码或新建 `.envrc` 时无需手动执行 `direnv allow`，开箱即用。
+   镜像默认在系统全局 `/etc/xdg/direnv/direnv.toml` 中将 `/workspace` 添加至 `whitelist.prefix`，开发者在宿主机挂载代码或新建 `.envrc` 时无需手动执行 `direnv allow`，开箱即用。
 2. **Direnv 与 Mise 双向原生联动**：
-   镜像内置配置 `/root/.config/direnv/direnvrc` 包含 `mise direnv activate` 扩展，开发者可在 `.envrc` 中直接写入 `use mise` 享受按需环境切换。
+   镜像内置系统级配置 `/etc/xdg/direnv/direnvrc` 包含 `mise direnv activate` 扩展，开发者可在 `.envrc` 中直接写入 `use mise` 享受按需环境切换。
 3. **交互与非交互双模态环境变量导出**：
-   - **交互式会话**（SSH、`docker exec`、VS Code 终端）：通过 `~/.bashrc` 中的 `eval "$(direnv hook bash)"` 实现 `cd` 目录时自动热切换环境变量。
+   - **交互式会话**（SSH、`docker exec`、VS Code 终端）：通过系统级 `/etc/bash.bashrc` 中的全局钩子实现 `cd` 目录时自动热切换环境变量。
    - **非交互式/守护进程**（容器启动、后台命令）：Entrypoint 启动时主动通过 `direnv export bash` 将 `.envrc` 环境变量注入至主进程上下文。
 
 ### 容器开发模式与配置持久化
@@ -259,12 +255,12 @@ flowchart LR
     end
 
     subgraph DevContainer["开发容器 (dev 模式)"]
-        WS["/root/workspace"]
-        P0["/root/.local/share/direnv"]
-        P1["/root/.codex"]
-        P2["/root/.gemini"]
-        P3["/root/.config/opencode"]
-        P4["/root/.claude"]
+        WS["/workspace"]
+        P0["${CONTAINER_HOME:-/home/dev}/.local/share/direnv"]
+        P1["${CONTAINER_HOME:-/home/dev}/.codex"]
+        P2["${CONTAINER_HOME:-/home/dev}/.gemini"]
+        P3["${CONTAINER_HOME:-/home/dev}/.config/opencode"]
+        P4["${CONTAINER_HOME:-/home/dev}/.claude"]
     end
 
     Code -->|目录挂载| WS
@@ -274,6 +270,17 @@ flowchart LR
     V3 <-->|卷持久化| P3
     V4 <-->|卷持久化| P4
 ```
+
+> [!TIP]
+> **多用户家目录与自适应权限**：
+> 默认启动时，容器会自动使用普通开发用户（`dev`，UID/GID `1000:1000`）运行，持久化卷自动挂载至 `${CONTAINER_HOME:-/home/dev}/.xxx`。
+> 若需切换为 root 身份运行，只需在启动时传入环境变量：
+>
+> ```bash
+> HOST_UID=0 CONTAINER_HOME=/root docker compose up -d
+> ```
+>
+> 卷将自动无缝重定向挂载至 `/root/.xxx`，底层脚本 0 硬编码，所见即所得。
 
 ---
 
@@ -285,9 +292,10 @@ flowchart LR
 
 ```bash
 docker run -it --rm \
-  -v $(pwd):/root/workspace \
-  -v claude-config:/root/.claude \
-  -v codex-config:/root/.codex \
+  -e HOST_UID=$(id -u):$(id -g) \
+  -v $(pwd):/workspace \
+  -v claude-config:/home/dev/.claude \
+  -v codex-config:/home/dev/.codex \
   --cap-add=SYS_ADMIN \
   --cap-add=SYS_PTRACE \
   ghcr.io/shaogme/coding-images/rust-wasm:latest bash
@@ -295,7 +303,57 @@ docker run -it --rm \
 
 ### 使用 Docker Compose 进行开发
 
-以 `images/rust/common` 为例：
+以 `images/rust/common` 为例，标准的 `docker-compose.yml` 编排配置如下：
+
+```yaml
+services:
+  app-base: &app-base
+    image: ghcr.io/shaogme/coding-images/rust-common:latest
+    environment:
+      - ROOT_PASSWORD=root
+      - MISE_YES=1
+      - HOST_UID=${HOST_UID:-1000:1000} # 自适应宿主机 UID/GID
+      - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
+      - CARGO_INCREMENTAL=1
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+      - NET_ADMIN
+    tty: true
+
+  dev:
+    <<: *app-base
+    container_name: rust-common-dev
+    volumes:
+      # 挂载宿主机源码
+      - .:/workspace
+      # 独立命名卷隔离 Rust 编译产物
+      - rust-target:/workspace/target
+      # 持久化 Cargo 依赖与 Git 检出
+      - cargo-registry:${CONTAINER_HOME:-/home/dev}/.cargo/registry
+      - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
+      # 持久化 direnv 数据
+      - direnv-data:${CONTAINER_HOME:-/home/dev}/.local/share/direnv
+      # 持久化 AI 工具配置与会话状态
+      - codex-config:${CONTAINER_HOME:-/home/dev}/.codex
+      - gemini-config:${CONTAINER_HOME:-/home/dev}/.gemini
+      - opencode-config:${CONTAINER_HOME:-/home/dev}/.config/opencode
+      - claude-config:${CONTAINER_HOME:-/home/dev}/.claude
+
+volumes:
+  rust-target:
+  cargo-registry:
+  cargo-git:
+  direnv-data:
+  codex-config:
+  gemini-config:
+  opencode-config:
+  claude-config:
+```
+
+启动并进入开发环境：
 
 ```bash
 cd images/rust/common

@@ -5,6 +5,8 @@ services:
     environment:
       - ROOT_PASSWORD=root # Set your secure password here
       - MISE_YES=1 # Non-interactive mode for mise
+      - HOST_UID=${HOST_UID:-1000:1000} # Adaptive UID/GID mapping to avoid file permission conflicts
+      - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
     security_opt:
       - seccomp:unconfined # Required for some low-level operations
     cap_add:
@@ -19,29 +21,14 @@ services:
     container_name: common-dev
     volumes:
       # Mount host source code
-      - .:/root/workspace
+      - .:/workspace
       # Persist direnv data
-      - direnv-data:/root/.local/share/direnv
+      - direnv-data:${CONTAINER_HOME:-/home/dev}/.local/share/direnv
       # Persist codex configuration
-      - codex-config:/root/.codex
-      - gemini-config:/root/.gemini
-      - opencode-config:/root/.config/opencode
-      - claude-config:/root/.claude
-
-  # Standalone mode: Uses code copied into the image (No host mounting)
-  standalone:
-    <<: *app-base
-    container_name: common-standalone
-    volumes:
-      # Persist direnv data
-      - direnv-data:/root/.local/share/direnv
-      # Persist codex configuration
-      - codex-config:/root/.codex
-      - gemini-config:/root/.gemini
-      - opencode-config:/root/.config/opencode
-      - claude-config:/root/.claude
-    profiles:
-      - standalone
+      - codex-config:${CONTAINER_HOME:-/home/dev}/.codex
+      - gemini-config:${CONTAINER_HOME:-/home/dev}/.gemini
+      - opencode-config:${CONTAINER_HOME:-/home/dev}/.config/opencode
+      - claude-config:${CONTAINER_HOME:-/home/dev}/.claude
 
 volumes:
   mise-cache:

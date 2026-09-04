@@ -2,11 +2,10 @@ ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/rust-common:latest
 FROM ${BASE_IMAGE}
 ARG TARGETARCH
 
-WORKDIR /root/workspace
+WORKDIR /workspace
 
 # Install WebAssembly and headless browser testing packages via nix-env
-RUN --mount=type=cache,id=nix-cache,target=/root/.cache/nix,sharing=shared \
-    --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
+RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
     echo "sandbox = false" >> /etc/nix/nix.conf && \
     nix-env --option sandbox false -iA \
         nixpkgs.fontconfig \
@@ -16,16 +15,18 @@ RUN --mount=type=cache,id=nix-cache,target=/root/.cache/nix,sharing=shared \
         nixpkgs.geckodriver
 
 # Set headless browser and fontconfig environment variables
-ENV FONTCONFIG_PATH=/root/.nix-profile/etc/fonts \
-    FONTCONFIG_FILE=/root/.nix-profile/etc/fonts/fonts.conf \
+ENV FONTCONFIG_PATH=/etc/fonts \
+    FONTCONFIG_FILE=/etc/fonts/fonts.conf \
     MOZ_HEADLESS=1 \
     LIBGL_ALWAYS_SOFTWARE=1
 
 # Configure fontconfig and silent Firefox headless preferences via enterprise policies
 RUN set -e; \
     mkdir -p /etc/fonts; \
-    if [ -f /root/.nix-profile/etc/fonts/fonts.conf ]; then \
-        ln -sf /root/.nix-profile/etc/fonts/fonts.conf /etc/fonts/fonts.conf; \
+    if [ -d /nix/var/nix/profiles/default/etc/fonts ]; then \
+        cp -rL /nix/var/nix/profiles/default/etc/fonts/* /etc/fonts/ 2>/dev/null || true; \
+    elif [ -d /root/.nix-profile/etc/fonts ]; then \
+        cp -rL /root/.nix-profile/etc/fonts/* /etc/fonts/ 2>/dev/null || true; \
     fi; \
     fc-cache -fv || true; \
     mkdir -p /etc/firefox/policies; \
@@ -56,21 +57,18 @@ RUN set -e; \
         echo '}'; \
     } > /etc/firefox/policies/policies.json
 
-COPY .config/mise.toml /root/.config/mise/conf.d/30-wasm.toml
+COPY .config/mise.toml /etc/mise/conf.d/30-wasm.toml
 
 # Declaratively lock global toolchain versions and pre-install WebAssembly tools/targets
 RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
-    --mount=type=cache,id=mise-cache-${TARGETARCH},target=/root/.cache/mise,sharing=shared \
-    --mount=type=cache,id=cargo-registry,target=/root/.cargo/registry,sharing=shared \
-    --mount=type=cache,id=cargo-git,target=/root/.cargo/git,sharing=shared \
-    --mount=type=cache,id=cargo-target-${TARGETARCH},target=/root/.cargo/target,sharing=shared \
     --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
     set -e; \
     echo "Locking global toolchain specifications and WebAssembly targets..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install; \
-    rustup target add wasm32-unknown-unknown --toolchain nightly;
+    rustup target add wasm32-unknown-unknown --toolchain nightly; \
+    chmod -R 1777 /usr/local/share/mise /usr/local/share/rustup 2>/dev/null || true;
 
 # Default command passed to entrypoint (inherited from common base)
 CMD []

@@ -5,20 +5,63 @@ set -e
 # Mise Development Container Entrypoint
 # ==========================================
 
-WORKSPACE="${WORKSPACE_DIR:-/root/workspace}"
+WORKSPACE="${WORKSPACE:-${WORKSPACE_DIR:-/workspace}}"
 
 if [ -d "$WORKSPACE" ]; then
     cd "$WORKSPACE"
 fi
 
-USER_HOME="${HOME:-/root}"
+# ==========================================
+# Adaptive UID/GID & Home Resolution
+# ==========================================
+TARGET_UID=""
+TARGET_GID=""
 
-# Ensure PNPM and Cargo environment paths are properly configured
-if [ -n "$PNPM_HOME" ]; then
-    export PATH="$PNPM_HOME/bin:$PNPM_HOME:$USER_HOME/.cargo/bin:$USER_HOME/.nix-profile/bin:$PATH"
-else
-    export PATH="$USER_HOME/.cargo/bin:$USER_HOME/.nix-profile/bin:$PATH"
+# 1. Parse from HOST_UID / HOST_GID environment variables
+if [ -n "$HOST_UID" ]; then
+    if [[ "$HOST_UID" == *:* ]]; then
+        TARGET_UID="${HOST_UID%%:*}"
+        TARGET_GID="${HOST_UID##*:}"
+    else
+        TARGET_UID="$HOST_UID"
+        TARGET_GID="${HOST_GID:-$HOST_UID}"
+    fi
+elif [ -n "$HOST_GID" ]; then
+    TARGET_GID="$HOST_GID"
 fi
+
+# 2. Runtime user mapping probe from workspace directory if not explicitly set
+if [ -z "$TARGET_UID" ] && [ "$RUN_AS_ROOT" != "1" ] && [ -d "$WORKSPACE" ]; then
+    PROBED_UID=$(stat -c '%u' "$WORKSPACE" 2>/dev/null || echo 0)
+    PROBED_GID=$(stat -c '%g' "$WORKSPACE" 2>/dev/null || echo 0)
+    if [ "$PROBED_UID" -gt 0 ] 2>/dev/null; then
+        TARGET_UID="$PROBED_UID"
+        TARGET_GID="${TARGET_GID:-$PROBED_GID}"
+    fi
+fi
+
+TARGET_UID="${TARGET_UID:-0}"
+TARGET_GID="${TARGET_GID:-$TARGET_UID}"
+
+# Determine user home directory: respect CONTAINER_HOME override or resolve according to TARGET_UID
+if [ -n "$CONTAINER_HOME" ]; then
+    USER_HOME="$CONTAINER_HOME"
+elif [ "$TARGET_UID" -ne 0 ]; then
+    USER_HOME="/home/dev"
+else
+    USER_HOME="${HOME:-/root}"
+fi
+
+# Ensure user-specific Cargo, Nix profile, and PNPM paths are dynamically configured for the active user
+export NIX_PROFILE="${NIX_PROFILE:-/nix/var/nix/profiles/default}"
+USER_PATHS="$USER_HOME/.cargo/bin:$USER_HOME/.nix-profile/bin"
+if [ -n "$PNPM_HOME" ]; then
+    USER_PATHS="$PNPM_HOME/bin:$PNPM_HOME:$USER_PATHS"
+fi
+export PATH="$USER_PATHS:$PATH"
+
+# Dynamically configure Cargo target directory based on active USER_HOME
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$USER_HOME/.cargo/target}"
 
 # Candidate workspace configuration files in order of precedence:
 # 1. mise.local.toml / mise.<env>.local.toml (and .mise.*.local.toml)
@@ -95,21 +138,18 @@ if [ -n "$FOUND_PATH" ]; then
     CONFIG_FOUND=1
 fi
 
-# Ensure direnv configuration and workspace whitelist are in place
-mkdir -p "$USER_HOME/.config/direnv" "$USER_HOME/.local/share/direnv"
-if [ ! -f "$USER_HOME/.config/direnv/direnv.toml" ]; then
-    printf '[whitelist]\nprefix = [ "/root/workspace", "%s" ]\n' "$WORKSPACE" > "$USER_HOME/.config/direnv/direnv.toml"
-fi
-if [ ! -f "$USER_HOME/.config/direnv/direnvrc" ]; then
-    printf 'type -P mise &>/dev/null && eval "$(mise direnv activate 2>/dev/null || true)"\n' > "$USER_HOME/.config/direnv/direnvrc"
-fi
-
-# Ensure ~/.bashrc hooks mise and direnv for interactive subshells and VS Code terminal sessions
-if [ ! -f "$USER_HOME/.bashrc" ] || ! grep -q "mise activate" "$USER_HOME/.bashrc"; then
-    echo 'eval "$(mise activate bash)"' >> "$USER_HOME/.bashrc"
-fi
-if [ ! -f "$USER_HOME/.bashrc" ] || ! grep -q "direnv hook" "$USER_HOME/.bashrc"; then
-    echo 'eval "$(direnv hook bash)"' >> "$USER_HOME/.bashrc"
+# Ensure system-wide direnv configuration and workspace whitelist are in place
+if [ -w /etc/xdg/direnv ] || [ -w /etc/xdg/direnv/direnv.toml 2>/dev/null ]; then
+    if [ ! -f /etc/xdg/direnv/direnv.toml ] || ! grep -q "\"$WORKSPACE\"" /etc/xdg/direnv/direnv.toml 2>/dev/null; then
+        if [ "$WORKSPACE" = "/workspace" ]; then
+            printf '[whitelist]\nprefix = [ "/workspace" ]\n' > /etc/xdg/direnv/direnv.toml 2>/dev/null || true
+        else
+            printf '[whitelist]\nprefix = [ "/workspace", "%s" ]\n' "$WORKSPACE" > /etc/xdg/direnv/direnv.toml 2>/dev/null || true
+        fi
+    fi
+    if [ ! -f /etc/xdg/direnv/direnvrc ]; then
+        printf 'type -P mise &>/dev/null && eval "$(mise direnv activate 2>/dev/null || true)"\n' > /etc/xdg/direnv/direnvrc 2>/dev/null || true
+    fi
 fi
 
 if [ $CONFIG_FOUND -eq 1 ]; then
@@ -119,7 +159,7 @@ if [ $CONFIG_FOUND -eq 1 ]; then
     mise install || true
 else
     echo "[mise-entrypoint] No workspace-specific mise configuration found in $WORKSPACE."
-    echo "[mise-entrypoint] Using global mise configurations (~/.config/mise/conf.d/*.toml)."
+    echo "[mise-entrypoint] Using global mise configurations (/etc/mise/conf.d/*.toml)."
     mise trust --all 2>/dev/null || true
 fi
 
@@ -137,22 +177,6 @@ if [ $DIRENV_CONFIG_FOUND -eq 1 ] && (command -v direnv >/dev/null 2>&1 || mise 
     direnv allow "$WORKSPACE" 2>/dev/null || direnv allow . 2>/dev/null || true
     eval "$(direnv export bash 2>/dev/null || true)"
     echo "[mise-entrypoint] Direnv environment loaded."
-fi
-
-# Pre-fetch all Cargo dependencies if Cargo.lock exists and cargo tool is available
-if [ -f "Cargo.lock" ] && (command -v cargo >/dev/null 2>&1 || mise which cargo >/dev/null 2>&1); then
-    LOCK_HASH_FILE="$USER_HOME/.cargo/.silex_cargo_lock_hash"
-    CURRENT_HASH=$(sha256sum Cargo.lock 2>/dev/null | awk '{print $1}')
-    SAVED_HASH=$(cat "$LOCK_HASH_FILE" 2>/dev/null || echo "")
-
-    if [ -n "$CURRENT_HASH" ] && [ "$CURRENT_HASH" != "$SAVED_HASH" ]; then
-        echo "[mise-entrypoint] Cargo.lock change detected."
-        echo "[mise-entrypoint] Pre-fetching all Cargo dependencies..."
-        cargo fetch --locked 2>/dev/null || mise exec -- cargo fetch --locked 2>/dev/null || true
-        mkdir -p "$USER_HOME/.cargo"
-        echo "$CURRENT_HASH" > "$LOCK_HASH_FILE"
-        echo "[mise-entrypoint] Cargo dependencies synchronized."
-    fi
 fi
 
 echo "[mise-entrypoint] Mise & Direnv environment ready."
