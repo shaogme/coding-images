@@ -1,0 +1,39 @@
+{
+  "name": "Coding Images - Rust Common",
+  "image": "ghcr.io/shaogme/coding-images/rust-common:latest",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "remoteUser": "dev",
+  "capAdd": [
+    "SYS_ADMIN",
+    "SYS_PTRACE",
+    "NET_ADMIN"
+  ],
+  "securityOpt": [
+    "seccomp=unconfined"
+  ],
+  "containerEnv": {
+    "ROOT_PASSWORD": "root",
+    "MISE_YES": "1",
+    "CARGO_INCREMENTAL": "1"
+  },
+  "mounts": [
+    "source=rust-target,target=/workspace/target,type=volume",
+    "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
+    "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
+    "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",
+    "source=coding-config,target=/data/coding-config,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "serayuzgur.crates"
+      ],
+      "settings": {
+        "rust-analyzer.check.command": "clippy"
+      }
+    }
+  }
+}

@@ -53,6 +53,9 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     mise install; \
     chmod -R 1777 /usr/local/share/mise;
 
+# Create unified coding-config directory with shared permissions for AI tool storage
+RUN mkdir -p /data/coding-config && chmod 1777 /data/coding-config
+
 # Set the custom entrypoint
 ENTRYPOINT ["/usr/local/bin/mise-entrypoint.sh"]
 

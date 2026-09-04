@@ -1,0 +1,31 @@
+{
+  "name": "Coding Images - Common",
+  "image": "ghcr.io/shaogme/coding-images/common:latest",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "remoteUser": "dev",
+  "capAdd": [
+    "SYS_ADMIN",
+    "SYS_PTRACE",
+    "NET_ADMIN"
+  ],
+  "securityOpt": [
+    "seccomp=unconfined"
+  ],
+  "containerEnv": {
+    "ROOT_PASSWORD": "root",
+    "MISE_YES": "1"
+  },
+  "mounts": [
+    "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",
+    "source=coding-config,target=/data/coding-config,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "tamasfe.even-better-toml"
+      ]
+    }
+  }
+}

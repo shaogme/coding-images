@@ -1,0 +1,45 @@
+{
+  "name": "Coding Images - Rust Cross",
+  "image": "ghcr.io/shaogme/coding-images/rust-cross:latest",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "remoteUser": "dev",
+  "capAdd": [
+    "SYS_ADMIN",
+    "SYS_PTRACE",
+    "NET_ADMIN"
+  ],
+  "securityOpt": [
+    "seccomp=unconfined",
+    "label=disable"
+  ],
+  "runArgs": [
+    "--device=/dev/fuse"
+  ],
+  "containerEnv": {
+    "ROOT_PASSWORD": "root",
+    "MISE_YES": "1",
+    "CARGO_INCREMENTAL": "1",
+    "CROSS_CONTAINER_ENGINE": "podman"
+  },
+  "mounts": [
+    "source=rust-target,target=/workspace/target,type=volume",
+    "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
+    "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
+    "source=podman-containers,target=/var/lib/containers,type=volume",
+    "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",
+    "source=coding-config,target=/data/coding-config,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "serayuzgur.crates"
+      ],
+      "settings": {
+        "rust-analyzer.check.command": "clippy"
+      }
+    }
+  }
+}

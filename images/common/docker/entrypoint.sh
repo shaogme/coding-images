@@ -63,6 +63,76 @@ export PATH="$USER_PATHS:$PATH"
 # Dynamically configure Cargo target directory based on active USER_HOME
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$USER_HOME/.cargo/target}"
 
+# ==========================================
+# Unified AI Credentials & Tool Config Setup
+# ==========================================
+CODING_CONFIG_DIR="${CODING_CONFIG_DIR:-/data/coding-config}"
+mkdir -p "$CODING_CONFIG_DIR/claude" \
+         "$CODING_CONFIG_DIR/codex" \
+         "$CODING_CONFIG_DIR/gemini" \
+         "$CODING_CONFIG_DIR/opencode"
+
+if [ "$TARGET_UID" -ne 0 ]; then
+    chown -R "$TARGET_UID:$TARGET_GID" "$CODING_CONFIG_DIR" 2>/dev/null || true
+fi
+
+# Helper function to create symlinks from home directories to unified storage
+setup_ai_symlinks() {
+    local home_dir="$1"
+    local uid="$2"
+    local gid="$3"
+
+    [ -z "$home_dir" ] && return 0
+    mkdir -p "$home_dir" "$home_dir/.config"
+    if [ "$uid" -ne 0 ]; then
+        chown "$uid:$gid" "$home_dir" "$home_dir/.config" 2>/dev/null || true
+    fi
+
+    link_ai_path() {
+        local target="$1"
+        local link="$2"
+
+        # Strictly reject legacy volume mounts (no backward compatibility)
+        if mountpoint -q "$link" 2>/dev/null || grep -qs " $link " /proc/mounts; then
+            echo "[mise-entrypoint] FATAL: Volume mount detected at '$link'!" >&2
+            echo "[mise-entrypoint] Independent AI mounts (codex-config, gemini-config, opencode-config, claude-config) are strictly unsupported." >&2
+            echo "[mise-entrypoint] Please use unified volume: coding-config:/data/coding-config" >&2
+            exit 1
+        fi
+
+        # Remove any non-symlink directory or file and strictly enforce symlink to unified storage
+        if [ -e "$link" ] && [ ! -L "$link" ]; then
+            rm -rf "$link"
+        fi
+
+        if [ ! -L "$link" ] || [ "$(readlink "$link")" != "$target" ]; then
+            rm -f "$link" 2>/dev/null || true
+            ln -sfn "$target" "$link"
+        fi
+
+        if [ "$uid" -ne 0 ]; then
+            chown -h "$uid:$gid" "$link" 2>/dev/null || true
+        fi
+    }
+
+    link_ai_path "$CODING_CONFIG_DIR/claude" "$home_dir/.claude"
+    link_ai_path "$CODING_CONFIG_DIR/codex" "$home_dir/.codex"
+    link_ai_path "$CODING_CONFIG_DIR/gemini" "$home_dir/.gemini"
+    link_ai_path "$CODING_CONFIG_DIR/opencode" "$home_dir/.config/opencode"
+}
+
+# Link for current resolved USER_HOME
+setup_ai_symlinks "$USER_HOME" "$TARGET_UID" "$TARGET_GID"
+
+# Also ensure /root and /home/dev have links configured if they exist
+if [ "$USER_HOME" != "/root" ] && [ -d "/root" ]; then
+    setup_ai_symlinks "/root" 0 0
+fi
+if [ "$USER_HOME" != "/home/dev" ] && [ -d "/home/dev" ]; then
+    setup_ai_symlinks "/home/dev" "$TARGET_UID" "$TARGET_GID"
+fi
+
+
 # Candidate workspace configuration files in order of precedence:
 # 1. mise.local.toml / mise.<env>.local.toml (and .mise.*.local.toml)
 # 2. mise.toml / mise.<env>.toml (and .mise.*.toml)

@@ -22,6 +22,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - [快速开始](#快速开始)
   - [使用 Docker 直接运行](#使用-docker-直接运行)
   - [使用 Docker Compose 进行开发](#使用-docker-compose-进行开发)
+  - [使用 Dev Containers 进行开发 (VS Code / Cursor / Zed)](#使用-dev-containers-进行开发-vs-code--cursor--zed)
 - [本地开发与构建](#本地开发与构建)
   - [镜像目录规范](#镜像目录规范)
   - [镜像自动发现脚本](#镜像自动发现脚本)
@@ -41,8 +42,9 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - **声明式与模块化环境管理**：底层借助 NixOS 基础镜像提供干净可靠的系统级依赖，用户空间通过 `mise` 的系统与全局模块化配置（`/etc/mise/conf.d/`）按层级独立注入 Node.js、Python、Rust、WebAssembly 及各类 CLI 工具。
 - **自适应 UID/GID 权限映射**：底层完全承接 NixOS 的自适应 UID/GID 权限映射机制（支持 `HOST_UID:HOST_GID` 环境变量或启动时自动探测挂载的 `/workspace` 工作区属主），使用 `gosu` 切换至匹配的本地普通用户（默认 `dev`），彻底解决宿主机代码与容器构建产物的权限冲突问题。
 - **全自动 direnv 深度集成**：内置 `direnv` 及其 shell hook，配合预置白名单（`/workspace`）与 `use mise` 扩展，容器启动或切换目录时自动加载 `.envrc` / 环境变量，完全免除授权弹窗。
-- **内置 AI 编程套件**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），所有衍生子镜像自动继承，并通过 Docker 命名卷持久化登录凭证和会话上下文。
-- **统一自适应 Entrypoint**：统一的入口引导脚本，自适应支持普通用户（`dev`）与 root 运行模式，不仅自动探测工作区内 9 种层级的 mise 配置文件，还自动初始化与加载 direnv 环境，自适应检测 `Cargo.lock` 并进行依赖锁校验与预热，子镜像零维护。
+- **内置 AI 编程套件与统一存储**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），并通过统一数据卷与全局目录映射（`coding-config:/data/coding-config`）自动软链接汇聚 `~/.claude`、`~/.codex`、`~/.gemini` 与 `~/.config/opencode`，实现高内聚的一键凭证备份、迁移与跨镜像共享。
+- **标准化 Dev Containers 规范支持**：全量在各层级镜像中预置标准化 `.devcontainer/devcontainer.json` 配置，将安全能力（`cap_add`、`seccomp`）、环境变量及持久化挂载声明为通用工业标准，开箱即用无缝支持 VS Code、Cursor、Zed 等现代容器化 IDE。
+- **统一自适应 Entrypoint**：统一的入口引导脚本，自适应支持普通用户（`dev`）与 root 运行模式，不仅自动探测工作区内 9 种层级的 mise 配置文件，还自动初始化与加载 direnv 环境，自动建立 AI 配置软链接，子镜像零维护。
 - **完备的构建缓存优化**：Dockerfile 深度集成 BuildKit 缓存挂载（针对 Nix 缓存、mise 工具缓存、Cargo 依赖缓存等），显著加快构建与更新速度。
 
 ---
@@ -238,7 +240,18 @@ flowchart TD
 
 ### 容器开发模式与配置持久化
 
-各镜像预置了主流 AI 编程助手与 direnv 数据持久化，通过 Docker Compose 的命名卷实现本地凭证与配置持久化：
+各镜像深度整合主流 AI 编程助手（Claude Code、OpenAI Codex、OpenCode、Antigravity CLI）与 direnv 数据持久化。
+
+#### 统一 AI 凭证与存储映射策略
+
+为了避免在 Compose 或容器运行参数中分别声明 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.config/opencode` 等多个分散的命名卷，Coding Images 实施统一的高内聚存储映射策略：
+1. **全局统一存储卷**：所有 AI 编程工具的会话状态、认证 Token 与配置文件全部汇聚持久化到单一命名数据卷 `coding-config:/data/coding-config`。
+2. **启动自适应软链接**：容器启动时，入口脚本 `mise-entrypoint.sh` 自动在当前工作用户的主目录下创建指向 `/data/coding-config` 子目录的软链接：
+   - `${USER_HOME}/.claude` -> `/data/coding-config/claude`
+   - `${USER_HOME}/.codex` -> `/data/coding-config/codex`
+   - `${USER_HOME}/.gemini` -> `/data/coding-config/gemini`
+   - `${USER_HOME}/.config/opencode` -> `/data/coding-config/opencode`
+3. **备份与共享内聚**：开发者只需备份、恢复或挂载单个 `coding-config` 数据卷，即可完成全部 AI 助手环境的状态保留与跨容器共享。
 
 ```mermaid
 flowchart LR
@@ -248,39 +261,39 @@ flowchart LR
 
     subgraph Volumes["持久化 Docker 卷"]
         V0[("direnv-data")]
-        V1[("codex-config")]
-        V2[("gemini-config")]
-        V3[("opencode-config")]
-        V4[("claude-config")]
+        VAI[("coding-config<br/>(统一 AI 数据卷)")]
+        VRust[("rust-target / cargo-*")]
     end
 
-    subgraph DevContainer["开发容器 (dev 模式)"]
+    subgraph DevContainer["开发容器 (dev / root 模式)"]
         WS["/workspace"]
         P0["${CONTAINER_HOME:-/home/dev}/.local/share/direnv"]
-        P1["${CONTAINER_HOME:-/home/dev}/.codex"]
-        P2["${CONTAINER_HOME:-/home/dev}/.gemini"]
-        P3["${CONTAINER_HOME:-/home/dev}/.config/opencode"]
-        P4["${CONTAINER_HOME:-/home/dev}/.claude"]
+        Data["/data/coding-config"]
+        P1["~/.claude"]
+        P2["~/.codex"]
+        P3["~/.gemini"]
+        P4["~/.config/opencode"]
     end
 
     Code -->|目录挂载| WS
     V0 <-->|卷持久化| P0
-    V1 <-->|卷持久化| P1
-    V2 <-->|卷持久化| P2
-    V3 <-->|卷持久化| P3
-    V4 <-->|卷持久化| P4
+    VAI <-->|统一卷持久化| Data
+    Data -.->|自适应软链接| P1
+    Data -.->|自适应软链接| P2
+    Data -.->|自适应软链接| P3
+    Data -.->|自适应软链接| P4
 ```
 
 > [!TIP]
 > **多用户家目录与自适应权限**：
-> 默认启动时，容器会自动使用普通开发用户（`dev`，UID/GID `1000:1000`）运行，持久化卷自动挂载至 `${CONTAINER_HOME:-/home/dev}/.xxx`。
+> 默认启动时，容器会自动使用普通开发用户（`dev`，UID/GID `1000:1000`）运行，持久化卷和软链接将根据自适应 UID/GID 自动授权。
 > 若需切换为 root 身份运行，只需在启动时传入环境变量：
 >
 > ```bash
 > HOST_UID=0 CONTAINER_HOME=/root docker compose up -d
 > ```
 >
-> 卷将自动无缝重定向挂载至 `/root/.xxx`，底层脚本 0 硬编码，所见即所得。
+> 卷与软链接将自动无缝重定向挂载至 `/root`，底层脚本 0 硬编码，所见即所得。
 
 ---
 
@@ -294,10 +307,10 @@ flowchart LR
 docker run -it --rm \
   -e HOST_UID=$(id -u):$(id -g) \
   -v $(pwd):/workspace \
-  -v claude-config:/home/dev/.claude \
-  -v codex-config:/home/dev/.codex \
+  -v coding-config:/data/coding-config \
   --cap-add=SYS_ADMIN \
   --cap-add=SYS_PTRACE \
+  --cap-add=NET_ADMIN \
   ghcr.io/shaogme/coding-images/rust-wasm:latest bash
 ```
 
@@ -336,21 +349,16 @@ services:
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
       # 持久化 direnv 数据
       - direnv-data:${CONTAINER_HOME:-/home/dev}/.local/share/direnv
-      # 持久化 AI 工具配置与会话状态
-      - codex-config:${CONTAINER_HOME:-/home/dev}/.codex
-      - gemini-config:${CONTAINER_HOME:-/home/dev}/.gemini
-      - opencode-config:${CONTAINER_HOME:-/home/dev}/.config/opencode
-      - claude-config:${CONTAINER_HOME:-/home/dev}/.claude
+      # 统一持久化所有 AI 工具配置与会话状态
+      - coding-config:/data/coding-config
 
 volumes:
   rust-target:
   cargo-registry:
   cargo-git:
+  mise-cache:
   direnv-data:
-  codex-config:
-  gemini-config:
-  opencode-config:
-  claude-config:
+  coding-config:
 ```
 
 启动并进入开发环境：
@@ -360,6 +368,67 @@ cd images/rust/common
 docker compose up -d dev
 docker compose exec dev bash
 ```
+
+### 使用 Dev Containers 进行开发 (VS Code / Cursor / Zed)
+
+现代 IDE（VS Code、Cursor、Zed、DevPod 等）已广泛支持并原生依赖 [Dev Containers 规范](https://containers.dev)（`.devcontainer/devcontainer.json`）。
+
+Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化 `.devcontainer/devcontainer.json`，把安全能力（`cap_add`）、安全配置（`security_opt`）、环境变量以及持久化挂载统一声明为工业标准规范：
+
+以 `images/rust/wasm/.devcontainer/devcontainer.json` 为例：
+
+```json
+{
+  "name": "Coding Images - Rust WASM",
+  "image": "ghcr.io/shaogme/coding-images/rust-wasm:latest",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "remoteUser": "dev",
+  "capAdd": [
+    "SYS_ADMIN",
+    "SYS_PTRACE",
+    "NET_ADMIN"
+  ],
+  "securityOpt": [
+    "seccomp=unconfined"
+  ],
+  "containerEnv": {
+    "ROOT_PASSWORD": "root",
+    "MISE_YES": "1",
+    "CARGO_INCREMENTAL": "1"
+  },
+  "mounts": [
+    "source=rust-target,target=/workspace/target,type=volume",
+    "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
+    "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
+    "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",
+    "source=coding-config,target=/data/coding-config,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "serayuzgur.crates",
+        "webassembly.webassembly-studio-extension"
+      ],
+      "settings": {
+        "rust-analyzer.check.command": "clippy"
+      }
+    }
+  }
+}
+```
+
+#### 使用步骤：
+1. **VS Code / Cursor**：
+   - 打开包含 `.devcontainer` 的目录（例如将对应层级的 `.devcontainer` 复制至自己的工程根目录，或直接打开本仓库）。
+   - 按 `F1` 或 `Ctrl+Shift+P`，输入并执行 `Dev Containers: Reopen in Container`。
+   - IDE 将自动拉取镜像、挂载统一 `coding-config` 数据卷、加载安全能力并安装预配置插件。
+2. **Zed**：
+   - 使用 Zed 打开包含 `.devcontainer/devcontainer.json` 的工程目录。
+   - 在右下角或命令面板中选择 `Open in Container`，Zed 将解析标准配置并在隔离容器中启动远程开发服务。
+
 
 ---
 
@@ -373,6 +442,8 @@ docker compose exec dev bash
 images/rust/wasm/
 ├── .config/
 │   └── mise.toml         # 该镜像的增量 mise 工具清单 (30-wasm.toml)
+├── .devcontainer/
+│   └── devcontainer.json # 对应层级的 Dev Container 标准化配置
 ├── docker/
 │   └── Dockerfile        # 镜像构建定义 (FROM coding-images/rust-common)
 └── docker-compose.yml    # 本地容器编排配置
@@ -435,6 +506,8 @@ flowchart TD
 
 ```
 .
+├── .devcontainer/
+│   └── devcontainer.json            # 根工作区 Dev Container 标准化配置
 ├── .github/
 │   └── workflows/
 │       ├── build-and-publish.yml    # 3 阶段拓扑编排工作流
@@ -443,16 +516,22 @@ flowchart TD
 │   ├── common/
 │   │   ├── .config/
 │   │   │   └── mise.toml            # common 基础与 direnv 工具 (10-common.toml)
+│   │   ├── .devcontainer/
+│   │   │   └── devcontainer.json    # common Dev Container 配置
 │   │   ├── docker/
 │   │   │   ├── Dockerfile           # common 构建规则 (FROM nixos-dockers/mise)
-│   │   │   └── entrypoint.sh        # 全局统一智能引导脚本 (Mise & Direnv 联动)
+│   │   │   └── entrypoint.sh        # 全局统一智能引导脚本 (Mise, Direnv & AI 凭证软链接)
 │   │   └── docker-compose.yml
 │   ├── npins/
 │   │   ├── common/
+│   │   │   ├── .devcontainer/
+│   │   │   │   └── devcontainer.json # npins-common Dev Container 配置
 │   │   │   ├── docker/
 │   │   │   │   └── Dockerfile       # npins-common 构建规则 (FROM common)
 │   │   │   └── docker-compose.yml
 │   │   └── rust/
+│   │       ├── .devcontainer/
+│   │       │   └── devcontainer.json # npins-rust Dev Container 配置
 │   │       ├── docker/
 │   │       │   └── Dockerfile       # npins-rust 构建规则 (FROM rust-common)
 │   │       └── docker-compose.yml
@@ -460,18 +539,24 @@ flowchart TD
 │       ├── common/
 │       │   ├── .config/
 │       │   │   └── mise.toml        # Rust & Node 增量工具 (20-rust.toml)
+│       │   ├── .devcontainer/
+│       │   │   └── devcontainer.json # rust-common Dev Container 配置
 │       │   ├── docker/
 │       │   │   └── Dockerfile       # rust-common 构建规则 (FROM common)
 │       │   └── docker-compose.yml
 │       ├── cross/
 │       │   ├── .config/
 │       │   │   └── mise.toml        # 交叉编译工具与 Podman 引擎 (30-cross.toml)
+│       │   ├── .devcontainer/
+│       │   │   └── devcontainer.json # rust-cross Dev Container 配置
 │       │   ├── docker/
 │       │   │   └── Dockerfile       # rust-cross 构建规则 (FROM rust-common)
 │       │   └── docker-compose.yml
 │       └── wasm/
 │           ├── .config/
 │           │   └── mise.toml        # WASM 增量工具 (30-wasm.toml)
+│           ├── .devcontainer/
+│           │   └── devcontainer.json # rust-wasm Dev Container 配置
 │           ├── docker/
 │           │   └── Dockerfile       # rust-wasm 构建规则 (FROM rust-common)
 │           └── docker-compose.yml

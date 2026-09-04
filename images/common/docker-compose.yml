@@ -24,16 +24,10 @@ services:
       - .:/workspace
       # Persist direnv data
       - direnv-data:${CONTAINER_HOME:-/home/dev}/.local/share/direnv
-      # Persist codex configuration
-      - codex-config:${CONTAINER_HOME:-/home/dev}/.codex
-      - gemini-config:${CONTAINER_HOME:-/home/dev}/.gemini
-      - opencode-config:${CONTAINER_HOME:-/home/dev}/.config/opencode
-      - claude-config:${CONTAINER_HOME:-/home/dev}/.claude
+      # Persist unified AI credentials and tool configurations
+      - coding-config:/data/coding-config
 
 volumes:
   mise-cache:
   direnv-data:
-  codex-config:
-  gemini-config:
-  opencode-config:
-  claude-config:
+  coding-config:
