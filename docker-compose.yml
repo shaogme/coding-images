@@ -8,6 +8,7 @@ services:
       - HOST_UID=${HOST_UID:-1000:1000} # Adaptive UID/GID mapping to avoid file permission conflicts
       - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
       - CARGO_INCREMENTAL=1 # Enable incremental compilation for Rust builds
+      - CARGO_TARGET_DIR=/data/.cargo/target # Isolate Rust target directory to persistent data volume
     security_opt:
       - seccomp:unconfined # Required for some low-level operations
     cap_add:
@@ -24,7 +25,7 @@ services:
       # Mount host source code
       - .:/workspace
       # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
-      - rust-target:/workspace/target
+      - rust-target:/data/.cargo/target
       # Persist Cargo dependencies, crate index, and git checkouts
       - cargo-registry:${CONTAINER_HOME:-/home/dev}/.cargo/registry
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git

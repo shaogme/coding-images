@@ -60,9 +60,6 @@ if [ -n "$PNPM_HOME" ]; then
 fi
 export PATH="$USER_PATHS:$PATH"
 
-# Dynamically configure Cargo target directory based on active USER_HOME
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$USER_HOME/.cargo/target}"
-
 # ==========================================
 # Unified AI Credentials & Tool Config Setup
 # ==========================================

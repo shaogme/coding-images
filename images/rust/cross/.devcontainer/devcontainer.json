@@ -21,10 +21,11 @@
     "ROOT_PASSWORD": "root",
     "MISE_YES": "1",
     "CARGO_INCREMENTAL": "1",
+    "CARGO_TARGET_DIR": "/data/.cargo/target",
     "CROSS_CONTAINER_ENGINE": "podman"
   },
   "mounts": [
-    "source=rust-target,target=/workspace/target,type=volume",
+    "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
     "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
     "source=podman-containers,target=/var/lib/containers,type=volume",

@@ -15,10 +15,11 @@
   "containerEnv": {
     "ROOT_PASSWORD": "root",
     "MISE_YES": "1",
-    "CARGO_INCREMENTAL": "1"
+    "CARGO_INCREMENTAL": "1",
+    "CARGO_TARGET_DIR": "/data/.cargo/target"
   },
   "mounts": [
-    "source=rust-target,target=/workspace/target,type=volume",
+    "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
     "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
     "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",

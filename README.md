@@ -212,7 +212,7 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    Start(["容器启动: mise-entrypoint.sh"]) --> ResolveUser["解析自适应 UID/GID & HOME<br/>动态配置 PATH 与 CARGO_TARGET_DIR"]
+    Start(["容器启动: mise-entrypoint.sh"]) --> ResolveUser["解析自适应 UID/GID & HOME<br/>动态配置 PATH 环境变量"]
     ResolveUser --> CheckWs["进入工作区目录 /workspace"]
     CheckWs --> DetectConfig{"探测工作区 mise 配置文件<br/>(9 级优先级匹配)"}
 
@@ -329,6 +329,7 @@ services:
       - HOST_UID=${HOST_UID:-1000:1000} # 自适应宿主机 UID/GID
       - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
       - CARGO_INCREMENTAL=1
+      - CARGO_TARGET_DIR=/data/.cargo/target
     security_opt:
       - seccomp:unconfined
     cap_add:
@@ -344,7 +345,7 @@ services:
       # 挂载宿主机源码
       - .:/workspace
       # 独立命名卷隔离 Rust 编译产物
-      - rust-target:/workspace/target
+      - rust-target:/data/.cargo/target
       # 持久化 Cargo 依赖与 Git 检出
       - cargo-registry:${CONTAINER_HOME:-/home/dev}/.cargo/registry
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
@@ -396,10 +397,11 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
   "containerEnv": {
     "ROOT_PASSWORD": "root",
     "MISE_YES": "1",
-    "CARGO_INCREMENTAL": "1"
+    "CARGO_INCREMENTAL": "1",
+    "CARGO_TARGET_DIR": "/data/.cargo/target"
   },
   "mounts": [
-    "source=rust-target,target=/workspace/target,type=volume",
+    "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
     "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
     "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",
