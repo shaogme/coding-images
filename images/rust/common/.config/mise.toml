@@ -4,10 +4,16 @@ binstall_native = true
 binstall_quickinstall = true
 
 [tools]
-rust = {
-    version = "stable",
-    components = ["rust-src"],
-}
+rust = [
+    {
+        version = "stable",
+        components = ["rust-src"],
+    },
+    {
+        version = "nightly",
+        components = ["rust-src"],
+    },
+]
 
 # Rust 工具
 cargo-binstall = {

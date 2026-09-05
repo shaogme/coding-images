@@ -20,7 +20,21 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install; \
-    rustup toolchain install nightly --component rust-src; \
+    TRIPLE=$(rustc -vV 2>/dev/null | sed -n 's/host: //p' || echo "$(uname -m)-unknown-linux-gnu"); \
+    cd "${RUSTUP_HOME}/toolchains"; \
+    LATEST_NIGHTLY=$(ls -d nightly-[0-9]* 2>/dev/null | sort -V | tail -n 1); \
+    if [ -n "$LATEST_NIGHTLY" ]; then \
+        echo "Linking nightly toolchain aliases for ${LATEST_NIGHTLY}..."; \
+        ln -sfn "$LATEST_NIGHTLY" "nightly-${TRIPLE}"; \
+        ln -sfn "$LATEST_NIGHTLY" "nightly"; \
+        if [ -d "${RUSTUP_HOME}/update-hashes" ] && [ -f "${RUSTUP_HOME}/update-hashes/${LATEST_NIGHTLY}" ]; then \
+            ln -sfn "$LATEST_NIGHTLY" "${RUSTUP_HOME}/update-hashes/nightly-${TRIPLE}"; \
+            ln -sfn "$LATEST_NIGHTLY" "${RUSTUP_HOME}/update-hashes/nightly"; \
+        fi; \
+    elif ! rustup toolchain list | grep -q "^nightly"; then \
+        echo "Fallback: installing nightly toolchain directly via rustup..."; \
+        rustup toolchain install nightly --component rust-src; \
+    fi; \
     chmod -R 1777 /usr/local/share/rustup /usr/local/share/pnpm 2>/dev/null || true;
 
 # Configure default sccache compiler cache wrapper, cache directory, and incremental setting

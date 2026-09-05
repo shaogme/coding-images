@@ -30,7 +30,6 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - [CI/CD 自动化构建与发布](#cicd-自动化构建与发布)
   - [分阶段 (Staged Matrix) 原生构建流水线](#分阶段-staged-matrix-原生构建流水线)
   - [镜像标签管理策略](#镜像标签管理策略)
-  - [工作流触发方式](#工作流触发方式)
 - [项目目录结构](#项目目录结构)
 
 ---
@@ -126,6 +125,8 @@ flowchart TD
     - `cargo-binstall`（二进制快速安装工具）
     - `sccache`（编译缓存工具）
     - `cargo-sweep`（构建产物清理工具）
+  - **Nightly 工具链多架构别名桥接（Symlink Alias）**：
+    通过 `mise` 声明式统一管理并锁定特定日期的 `nightly` 版本快照（保证构建确定性与缓存稳定性），在构建阶段自适应宿主架构（`x86_64` / `aarch64`）在 `$RUSTUP_HOME/toolchains` 中自动建立 `nightly-<triple>` 与 `nightly` 软链接别名，无缝兼容 `cargo +nightly`、`rustup target add` 与各类 IDE 插件的原生习惯。
 
 ### 4. npins-rust (Nix/npins + Rust 环境)
 
@@ -449,7 +450,7 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
 
 所有镜像均存放在 `images/` 目录下：
 
-```
+``` txt
 images/rust/wasm/
 ├── .config/
 │   └── mise.toml         # 该镜像的增量 mise 工具清单 (30-wasm.toml)
@@ -515,7 +516,7 @@ flowchart TD
 
 ## 项目目录结构
 
-```
+``` txt
 .
 ├── .devcontainer/
 │   └── devcontainer.json            # 根工作区 Dev Container 标准化配置
