@@ -21,10 +21,7 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install; \
     rustup toolchain install nightly --component rust-src; \
-    chmod -R 1777 /usr/local/share/mise /usr/local/share/rustup /usr/local/share/pnpm 2>/dev/null || true;
-
-# Create compiler cache directory with shared permissions for sccache storage
-RUN mkdir -p /data/sccache && chmod 1777 /data/sccache
+    chmod -R 1777 /usr/local/share/rustup /usr/local/share/pnpm 2>/dev/null || true;
 
 # Configure default sccache compiler cache wrapper, cache directory, and incremental setting
 ENV RUSTC_WRAPPER=sccache \

@@ -46,8 +46,7 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     echo "Pre-installing Rust cross-compilation tools during docker build..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
-    mise install; \
-    chmod -R 1777 /usr/local/share/mise /usr/local/share/rustup 2>/dev/null || true;
+    mise install;
 
 # Default command passed to entrypoint (inherited from common base)
 CMD []

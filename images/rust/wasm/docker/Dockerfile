@@ -67,8 +67,7 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install; \
-    rustup target add wasm32-unknown-unknown --toolchain nightly; \
-    chmod -R 1777 /usr/local/share/mise /usr/local/share/rustup 2>/dev/null || true;
+    rustup target add wasm32-unknown-unknown --toolchain nightly;
 
 # Default command passed to entrypoint (inherited from common base)
 CMD []

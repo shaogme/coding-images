@@ -62,10 +62,13 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install; \
-    chmod -R 1777 /usr/local/share/mise;
+    chmod -R 1777 /etc/mise /usr/local/share/mise && \
+    chmod -R a+rwX /etc/mise;
 
-# Create unified persistent storage directories with shared permissions for AI config and direnv data
-RUN mkdir -p /data/coding-config /data/direnv && chmod 1777 /data/coding-config /data/direnv
+# Create unified persistent storage directories with shared permissions for AI config, direnv data, sccache, and cargo target
+RUN mkdir -p /data/coding-config /data/direnv /data/.cargo/target /data/sccache && \
+    chmod 1777 /data/coding-config /data/direnv /data/sccache && \
+    chmod -R 1777 /data/.cargo
 
 # Set the custom entrypoint
 ENTRYPOINT ["/usr/local/bin/mise-entrypoint.sh"]

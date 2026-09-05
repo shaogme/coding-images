@@ -43,7 +43,8 @@ fi
 TARGET_UID="${TARGET_UID:-0}"
 TARGET_GID="${TARGET_GID:-$TARGET_UID}"
 
-# Determine user home directory: respect CONTAINER_HOME override or resolve according to TARGET_UID
+# Determine user home directory:
+# respect CONTAINER_HOME override or resolve according to TARGET_UID
 if [ -n "$CONTAINER_HOME" ]; then
     USER_HOME="$CONTAINER_HOME"
 elif [ "$TARGET_UID" -ne 0 ]; then
@@ -52,7 +53,8 @@ else
     USER_HOME="${HOME:-/root}"
 fi
 
-# Ensure user-specific Cargo, Nix profile, and PNPM paths are dynamically configured for the active user
+# Ensure user-specific Cargo, Nix profile, and PNPM paths are dynamically configured
+# for the active user
 USER_PATHS="$USER_HOME/.cargo/bin:$USER_HOME/.nix-profile/bin"
 if [ -n "$PNPM_HOME" ]; then
     USER_PATHS="$PNPM_HOME/bin:$PNPM_HOME:$USER_PATHS"
@@ -64,16 +66,15 @@ export PATH="$USER_PATHS:$PATH"
 # ==========================================
 CODING_CONFIG_DIR="${CODING_CONFIG_DIR:-/data/coding-config}"
 DIRENV_DATA_DIR="${DIRENV_DATA_DIR:-/data/direnv}"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/data/.cargo/target}"
 mkdir -p "$CODING_CONFIG_DIR/claude" \
          "$CODING_CONFIG_DIR/codex" \
          "$CODING_CONFIG_DIR/gemini" \
-         "$CODING_CONFIG_DIR/opencode" \
-         "$DIRENV_DATA_DIR"
-
-chmod 1777 "$DIRENV_DATA_DIR" 2>/dev/null || true
+         "$CODING_CONFIG_DIR/opencode"
 
 if [ "$TARGET_UID" -ne 0 ]; then
-    chown -R "$TARGET_UID:$TARGET_GID" "$CODING_CONFIG_DIR" "$DIRENV_DATA_DIR" 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" \
+        "$CODING_CONFIG_DIR" "$DIRENV_DATA_DIR" /etc/mise /data/.cargo 2>/dev/null || true
 fi
 
 # Helper function to create symlinks from home directories to unified storage
@@ -83,9 +84,12 @@ setup_ai_symlinks() {
     local gid="$3"
 
     [ -z "$home_dir" ] && return 0
-    mkdir -p "$home_dir" "$home_dir/.config"
+    mkdir -p "$home_dir" "$home_dir/.config" "$home_dir/.local" \
+             "$home_dir/.cache" "$home_dir/.cargo"
     if [ "$uid" -ne 0 ]; then
         chown "$uid:$gid" "$home_dir" "$home_dir/.config" 2>/dev/null || true
+        chown -R "$uid:$gid" \
+            "$home_dir/.local" "$home_dir/.cache" "$home_dir/.cargo" 2>/dev/null || true
     fi
 
     link_ai_path() {
@@ -95,12 +99,15 @@ setup_ai_symlinks() {
         # Strictly reject legacy volume mounts (no backward compatibility)
         if mountpoint -q "$link" 2>/dev/null || grep -qs " $link " /proc/mounts; then
             echo "[mise-entrypoint] FATAL: Volume mount detected at '$link'!" >&2
-            echo "[mise-entrypoint] Independent AI mounts (codex-config, gemini-config, opencode-config, claude-config) are strictly unsupported." >&2
-            echo "[mise-entrypoint] Please use unified volume: coding-config:/data/coding-config" >&2
+            echo "[mise-entrypoint] Independent AI mounts" \
+                 "(codex-config, gemini-config, opencode-config, claude-config)" \
+                 "are strictly unsupported." >&2
+            echo "[mise-entrypoint] Please use unified volume:" \
+                 "coding-config:/data/coding-config" >&2
             exit 1
         fi
 
-        # Remove any non-symlink directory or file and strictly enforce symlink to unified storage
+        # Remove non-symlink path and strictly enforce symlink to unified storage
         if [ -e "$link" ] && [ ! -L "$link" ]; then
             rm -rf "$link"
         fi
@@ -200,7 +207,8 @@ elif [ -f ".config/mise/config.toml" ]; then
     FOUND_PATH=".config/mise/config.toml"
 
 # 9. .config/mise/conf.d/*.toml
-elif [ -d ".config/mise/conf.d" ] && compgen -G ".config/mise/conf.d/*.toml" > /dev/null 2>&1; then
+elif [ -d ".config/mise/conf.d" ] && \
+     compgen -G ".config/mise/conf.d/*.toml" > /dev/null 2>&1; then
     FOUND_PATH=".config/mise/conf.d/*.toml"
 fi
 
@@ -208,34 +216,17 @@ if [ -n "$FOUND_PATH" ]; then
     CONFIG_FOUND=1
 fi
 
-# Ensure system-wide direnv configuration and workspace whitelist are in place (/etc/direnv)
-mkdir -p /etc/direnv 2>/dev/null || true
-if [ -w /etc/direnv ] || [ -w /etc/direnv/direnv.toml 2>/dev/null ]; then
-    if [ ! -f /etc/direnv/direnv.toml ] || ! grep -q "\"$WORKSPACE\"" /etc/direnv/direnv.toml 2>/dev/null; then
-        if [ "$WORKSPACE" = "/workspace" ]; then
-            printf '[whitelist]\nprefix = [ "/workspace" ]\n' > /etc/direnv/direnv.toml 2>/dev/null || true
-        else
-            printf '[whitelist]\nprefix = [ "/workspace", "%s" ]\n' "$WORKSPACE" > /etc/direnv/direnv.toml 2>/dev/null || true
-        fi
-    fi
-    if [ ! -f /etc/direnv/direnvrc ]; then
-        cat << 'EOF' > /etc/direnv/direnvrc 2>/dev/null || true
-type -P mise &>/dev/null && eval "$(mise direnv activate 2>/dev/null || true)"
-
-# Load user-configuration if present (~/.direnvrc or ~/.config/direnv/direnvrc)
-direnv_config_dir_home="${DIRENV_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/direnv}"
-if [[ -f "$direnv_config_dir_home/direnvrc" ]]; then
-  source "$direnv_config_dir_home/direnvrc" >&2
-elif [[ -f "$HOME/.direnvrc" ]]; then
-  source "$HOME/.direnvrc" >&2
-fi
-unset direnv_config_dir_home
-EOF
+# Append custom workspace to direnv whitelist if not default /workspace
+if [ "$WORKSPACE" != "/workspace" ] && [ -f /etc/direnv/direnv.toml ]; then
+    if ! grep -q "\"$WORKSPACE\"" /etc/direnv/direnv.toml 2>/dev/null; then
+        printf '[whitelist]\nprefix = [ "/workspace", "%s" ]\n' \
+            "$WORKSPACE" > /etc/direnv/direnv.toml 2>/dev/null || true
     fi
 fi
 
 if [ $CONFIG_FOUND -eq 1 ]; then
-    echo "[mise-entrypoint] Found workspace mise config ($FOUND_PATH). Initializing environment..."
+    echo "[mise-entrypoint] Found workspace mise config ($FOUND_PATH)." \
+         "Initializing environment..."
     mise trust --all 2>/dev/null || true
     echo "[mise-entrypoint] Installing tools via mise..."
     mise install || true
@@ -254,8 +245,10 @@ if [ -f ".envrc" ] || [ -f ".envrc.local" ] || compgen -G ".envrc.*" > /dev/null
     DIRENV_CONFIG_FOUND=1
 fi
 
-if [ $DIRENV_CONFIG_FOUND -eq 1 ] && (command -v direnv >/dev/null 2>&1 || mise which direnv >/dev/null 2>&1); then
-    echo "[mise-entrypoint] Found workspace direnv configuration (.envrc). Initializing direnv..."
+if [ $DIRENV_CONFIG_FOUND -eq 1 ] && \
+   (command -v direnv >/dev/null 2>&1 || mise which direnv >/dev/null 2>&1); then
+    echo "[mise-entrypoint] Found workspace direnv configuration (.envrc)." \
+         "Initializing direnv..."
     direnv allow "$WORKSPACE" 2>/dev/null || direnv allow . 2>/dev/null || true
     eval "$(direnv export bash 2>/dev/null || true)"
     echo "[mise-entrypoint] Direnv environment loaded."
@@ -265,18 +258,26 @@ fi
 # Sccache (Compiler Cache) Setup
 # ==========================================
 # Allow disabling sccache explicitly via environment variables:
-# e.g., SCCACHE_DISABLE=1/true, ENABLE_SCCACHE=0/false, USE_SCCACHE=0/false, NO_SCCACHE=1, DISABLE_SCCACHE=1, or RUSTC_WRAPPER=""/none/off/0
+# e.g., SCCACHE_DISABLE=1/true, ENABLE_SCCACHE=0/false, USE_SCCACHE=0/false,
+# NO_SCCACHE=1, DISABLE_SCCACHE=1, or RUSTC_WRAPPER=""/none/off/0
 SCCACHE_IS_DISABLED=0
 
 if [ "${SCCACHE_DISABLE:-}" = "1" ] || [ "${SCCACHE_DISABLE,,}" = "true" ]; then
     SCCACHE_IS_DISABLED=1
-elif [ -n "${ENABLE_SCCACHE+x}" ] && { [ "$ENABLE_SCCACHE" = "0" ] || [ "${ENABLE_SCCACHE,,}" = "false" ] || [ "${ENABLE_SCCACHE,,}" = "no" ] || [ "${ENABLE_SCCACHE,,}" = "off" ]; }; then
+elif [ -n "${ENABLE_SCCACHE+x}" ] && \
+     { [ "$ENABLE_SCCACHE" = "0" ] || [ "${ENABLE_SCCACHE,,}" = "false" ] || \
+       [ "${ENABLE_SCCACHE,,}" = "no" ] || [ "${ENABLE_SCCACHE,,}" = "off" ]; }; then
     SCCACHE_IS_DISABLED=1
-elif [ -n "${USE_SCCACHE+x}" ] && { [ "$USE_SCCACHE" = "0" ] || [ "${USE_SCCACHE,,}" = "false" ] || [ "${USE_SCCACHE,,}" = "no" ] || [ "${USE_SCCACHE,,}" = "off" ]; }; then
+elif [ -n "${USE_SCCACHE+x}" ] && \
+     { [ "$USE_SCCACHE" = "0" ] || [ "${USE_SCCACHE,,}" = "false" ] || \
+       [ "${USE_SCCACHE,,}" = "no" ] || [ "${USE_SCCACHE,,}" = "off" ]; }; then
     SCCACHE_IS_DISABLED=1
-elif [ "${NO_SCCACHE:-}" = "1" ] || [ "${NO_SCCACHE,,}" = "true" ] || [ "${DISABLE_SCCACHE:-}" = "1" ] || [ "${DISABLE_SCCACHE,,}" = "true" ]; then
+elif [ "${NO_SCCACHE:-}" = "1" ] || [ "${NO_SCCACHE,,}" = "true" ] || \
+     [ "${DISABLE_SCCACHE:-}" = "1" ] || [ "${DISABLE_SCCACHE,,}" = "true" ]; then
     SCCACHE_IS_DISABLED=1
-elif [ -n "${RUSTC_WRAPPER+x}" ] && { [ -z "$RUSTC_WRAPPER" ] || [ "$RUSTC_WRAPPER" = "none" ] || [ "$RUSTC_WRAPPER" = "off" ] || [ "$RUSTC_WRAPPER" = "0" ]; }; then
+elif [ -n "${RUSTC_WRAPPER+x}" ] && \
+     { [ -z "$RUSTC_WRAPPER" ] || [ "$RUSTC_WRAPPER" = "none" ] || \
+       [ "$RUSTC_WRAPPER" = "off" ] || [ "$RUSTC_WRAPPER" = "0" ]; }; then
     SCCACHE_IS_DISABLED=1
 fi
 
@@ -290,7 +291,10 @@ if [ "$SCCACHE_IS_DISABLED" -eq 1 ]; then
     fi
 else
     # Enable sccache by default when sccache or rust environment is detected
-    if command -v sccache >/dev/null 2>&1 || mise which sccache >/dev/null 2>&1 || [ -f "/etc/mise/conf.d/20-rust.toml" ] || [ "${RUSTC_WRAPPER:-}" = "sccache" ]; then
+    if command -v sccache >/dev/null 2>&1 || \
+       mise which sccache >/dev/null 2>&1 || \
+       [ -f "/etc/mise/conf.d/20-rust.toml" ] || \
+       [ "${RUSTC_WRAPPER:-}" = "sccache" ]; then
         export RUSTC_WRAPPER="${RUSTC_WRAPPER:-sccache}"
         export SCCACHE_DIR="${SCCACHE_DIR:-/data/sccache}"
         export SCCACHE_IGNORE_SERVER_IO_ERROR="${SCCACHE_IGNORE_SERVER_IO_ERROR:-1}"
@@ -301,14 +305,14 @@ else
 
         # Ensure sccache storage directory exists with proper permissions
         mkdir -p "$SCCACHE_DIR" 2>/dev/null || true
-        chmod 1777 "$SCCACHE_DIR" 2>/dev/null || true
         if [ "$TARGET_UID" -ne 0 ]; then
             CURRENT_OWNER=$(stat -c '%u' "$SCCACHE_DIR" 2>/dev/null || echo "")
             if [ "$CURRENT_OWNER" != "$TARGET_UID" ]; then
                 chown -R "$TARGET_UID:$TARGET_GID" "$SCCACHE_DIR" 2>/dev/null || true
             fi
         fi
-        echo "[mise-entrypoint] Sccache compiler cache enabled (SCCACHE_DIR=$SCCACHE_DIR, RUSTC_WRAPPER=$RUSTC_WRAPPER)."
+        echo "[mise-entrypoint] Sccache compiler cache enabled" \
+             "(SCCACHE_DIR=$SCCACHE_DIR, RUSTC_WRAPPER=$RUSTC_WRAPPER)."
     fi
 fi
 
