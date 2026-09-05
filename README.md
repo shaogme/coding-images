@@ -62,7 +62,7 @@ flowchart TD
     
     Common["【层级 0】common<br/>• bubblewrap<br/>• Python + AI 编码工具套件<br/>• 通用 CLI (direnv, jq, ripgrep, gh)<br/>• 统一智能 entrypoint.sh"]
     
-    RustCommon["【层级 1】rust-common<br/>• Node.js / pnpm / yarn<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / cargo-binstall"]
+    RustCommon["【层级 1】rust-common<br/>• Node.js / pnpm / yarn<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / cargo-binstall<br/>• sccache / cargo-sweep"]
     
     NpinsCommon["【层级 1】npins-common<br/>• nixpkgs.npins"]
     
@@ -124,6 +124,8 @@ flowchart TD
   - **Rust 专属扩展工具**：
     - `cargo-nextest`（Rust 快速测试运行器）
     - `cargo-binstall`（二进制快速安装工具）
+    - `sccache`（编译缓存工具）
+    - `cargo-sweep`（构建产物清理工具）
 
 ### 4. npins-rust (Nix/npins + Rust 环境)
 
@@ -328,8 +330,11 @@ services:
       - MISE_YES=1
       - HOST_UID=${HOST_UID:-1000:1000} # 自适应宿主机 UID/GID
       - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
-      - CARGO_INCREMENTAL=1
+      - CARGO_INCREMENTAL=0 # sccache 需关闭增量编译以生效缓存
       - CARGO_TARGET_DIR=/data/.cargo/target
+      - RUSTC_WRAPPER=sccache
+      - SCCACHE_DIR=/data/sccache
+      - SCCACHE_DISABLE=0 # 设为 1 或设置 ENABLE_SCCACHE=0 可显式关闭 sccache
     security_opt:
       - seccomp:unconfined
     cap_add:
@@ -349,6 +354,8 @@ services:
       # 持久化 Cargo 依赖与 Git 检出
       - cargo-registry:${CONTAINER_HOME:-/home/dev}/.cargo/registry
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
+      # 持久化 sccache 编译缓存
+      - sccache-cache:/data/sccache
       # 持久化 direnv 数据
       - direnv-data:${CONTAINER_HOME:-/home/dev}/.local/share/direnv
       # 统一持久化所有 AI 工具配置与会话状态
@@ -358,6 +365,7 @@ volumes:
   rust-target:
   cargo-registry:
   cargo-git:
+  sccache-cache:
   mise-cache:
   direnv-data:
   coding-config:

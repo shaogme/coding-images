@@ -246,6 +246,57 @@ if [ $DIRENV_CONFIG_FOUND -eq 1 ] && (command -v direnv >/dev/null 2>&1 || mise 
     echo "[mise-entrypoint] Direnv environment loaded."
 fi
 
+# ==========================================
+# Sccache (Compiler Cache) Setup
+# ==========================================
+# Allow disabling sccache explicitly via environment variables:
+# e.g., SCCACHE_DISABLE=1/true, ENABLE_SCCACHE=0/false, USE_SCCACHE=0/false, NO_SCCACHE=1, DISABLE_SCCACHE=1, or RUSTC_WRAPPER=""/none/off/0
+SCCACHE_IS_DISABLED=0
+
+if [ "${SCCACHE_DISABLE:-}" = "1" ] || [ "${SCCACHE_DISABLE,,}" = "true" ]; then
+    SCCACHE_IS_DISABLED=1
+elif [ -n "${ENABLE_SCCACHE+x}" ] && { [ "$ENABLE_SCCACHE" = "0" ] || [ "${ENABLE_SCCACHE,,}" = "false" ] || [ "${ENABLE_SCCACHE,,}" = "no" ] || [ "${ENABLE_SCCACHE,,}" = "off" ]; }; then
+    SCCACHE_IS_DISABLED=1
+elif [ -n "${USE_SCCACHE+x}" ] && { [ "$USE_SCCACHE" = "0" ] || [ "${USE_SCCACHE,,}" = "false" ] || [ "${USE_SCCACHE,,}" = "no" ] || [ "${USE_SCCACHE,,}" = "off" ]; }; then
+    SCCACHE_IS_DISABLED=1
+elif [ "${NO_SCCACHE:-}" = "1" ] || [ "${NO_SCCACHE,,}" = "true" ] || [ "${DISABLE_SCCACHE:-}" = "1" ] || [ "${DISABLE_SCCACHE,,}" = "true" ]; then
+    SCCACHE_IS_DISABLED=1
+elif [ -n "${RUSTC_WRAPPER+x}" ] && { [ -z "$RUSTC_WRAPPER" ] || [ "$RUSTC_WRAPPER" = "none" ] || [ "$RUSTC_WRAPPER" = "off" ] || [ "$RUSTC_WRAPPER" = "0" ]; }; then
+    SCCACHE_IS_DISABLED=1
+fi
+
+if [ "$SCCACHE_IS_DISABLED" -eq 1 ]; then
+    echo "[mise-entrypoint] Sccache is explicitly disabled via environment variable."
+    unset RUSTC_WRAPPER
+    export SCCACHE_DISABLE=1
+    # Fallback to incremental compilation when sccache is disabled
+    if [ "${CARGO_INCREMENTAL:-}" = "0" ]; then
+        export CARGO_INCREMENTAL=1
+    fi
+else
+    # Enable sccache by default when sccache or rust environment is detected
+    if command -v sccache >/dev/null 2>&1 || mise which sccache >/dev/null 2>&1 || [ -f "/etc/mise/conf.d/20-rust.toml" ] || [ "${RUSTC_WRAPPER:-}" = "sccache" ]; then
+        export RUSTC_WRAPPER="${RUSTC_WRAPPER:-sccache}"
+        export SCCACHE_DIR="${SCCACHE_DIR:-/data/sccache}"
+        export SCCACHE_IGNORE_SERVER_IO_ERROR="${SCCACHE_IGNORE_SERVER_IO_ERROR:-1}"
+        # Incremental compilation must be disabled for sccache caching to work effectively
+        if [ -z "${CARGO_INCREMENTAL:-}" ] || [ "$CARGO_INCREMENTAL" = "1" ]; then
+            export CARGO_INCREMENTAL=0
+        fi
+
+        # Ensure sccache storage directory exists with proper permissions
+        mkdir -p "$SCCACHE_DIR" 2>/dev/null || true
+        chmod 1777 "$SCCACHE_DIR" 2>/dev/null || true
+        if [ "$TARGET_UID" -ne 0 ]; then
+            CURRENT_OWNER=$(stat -c '%u' "$SCCACHE_DIR" 2>/dev/null || echo "")
+            if [ "$CURRENT_OWNER" != "$TARGET_UID" ]; then
+                chown -R "$TARGET_UID:$TARGET_GID" "$SCCACHE_DIR" 2>/dev/null || true
+            fi
+        fi
+        echo "[mise-entrypoint] Sccache compiler cache enabled (SCCACHE_DIR=$SCCACHE_DIR, RUSTC_WRAPPER=$RUSTC_WRAPPER)."
+    fi
+fi
+
 echo "[mise-entrypoint] Mise & Direnv environment ready."
 
 # Hand over execution to the base NixOS container entrypoint

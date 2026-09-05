@@ -19,3 +19,13 @@ rust = {
     version = "latest",
     depends = ["cargo:cargo-binstall"],
 }
+
+"cargo:cargo-sweep" = {
+    version = "latest",
+    depends = ["cargo:cargo-binstall"],
+}
+
+"cargo:sccache" = {
+    version = "latest",
+    depends = ["cargo:cargo-binstall"],
+}

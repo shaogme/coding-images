@@ -7,8 +7,11 @@ services:
       - MISE_YES=1 # Non-interactive mode for mise
       - HOST_UID=${HOST_UID:-1000:1000} # Adaptive UID/GID mapping to avoid file permission conflicts
       - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
-      - CARGO_INCREMENTAL=1 # Enable incremental compilation for Rust builds
+      - CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-0} # Disabled by default for sccache caching compatibility
       - CARGO_TARGET_DIR=/data/.cargo/target # Isolate Rust target directory to persistent data volume
+      - RUSTC_WRAPPER=${RUSTC_WRAPPER:-sccache} # Enable sccache compiler wrapper by default
+      - SCCACHE_DIR=/data/sccache # Directory for sccache compiler cache storage
+      - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0} # Set to 1 to explicitly disable sccache (also supports ENABLE_SCCACHE=0)
     security_opt:
       - seccomp:unconfined # Required for some low-level operations
     cap_add:
@@ -29,6 +32,8 @@ services:
       # Persist Cargo dependencies, crate index, and git checkouts
       - cargo-registry:${CONTAINER_HOME:-/home/dev}/.cargo/registry
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
+      # Persist sccache compiler cache
+      - sccache-cache:/data/sccache
       # Persist direnv data
       - direnv-data:${CONTAINER_HOME:-/home/dev}/.local/share/direnv
       # Persist unified AI credentials and tool configurations
@@ -38,6 +43,7 @@ volumes:
   rust-target:
   cargo-registry:
   cargo-git:
+  sccache-cache:
   mise-cache:
   direnv-data:
   coding-config:
