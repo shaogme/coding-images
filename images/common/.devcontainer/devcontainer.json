@@ -17,7 +17,7 @@
     "MISE_YES": "1"
   },
   "mounts": [
-    "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",
+    "source=direnv-data,target=/data/direnv,type=volume",
     "source=coding-config,target=/data/coding-config,type=volume"
   ],
   "customizations": {

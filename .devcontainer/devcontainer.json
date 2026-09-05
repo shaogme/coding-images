@@ -25,7 +25,7 @@
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
     "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
     "source=sccache-cache,target=/data/sccache,type=volume",
-    "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",
+    "source=direnv-data,target=/data/direnv,type=volume",
     "source=coding-config,target=/data/coding-config,type=volume"
   ],
   "customizations": {

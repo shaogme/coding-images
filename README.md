@@ -41,7 +41,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - **多架构原生构建**：通过 GitHub Actions 分别在 x86_64（`ubuntu-latest`）和 ARM64（`ubuntu-24.04-arm`）运行器上原生编译打包，避免 QEMU 模拟器的性能开销，生成统一的 Multi-Arch 镜像清单。
 - **声明式与模块化环境管理**：底层借助 NixOS 基础镜像提供干净可靠的系统级依赖，用户空间通过 `mise` 的系统与全局模块化配置（`/etc/mise/conf.d/`）按层级独立注入 Node.js、Python、Rust、WebAssembly 及各类 CLI 工具。
 - **自适应 UID/GID 权限映射**：底层完全承接 NixOS 的自适应 UID/GID 权限映射机制（支持 `HOST_UID:HOST_GID` 环境变量或启动时自动探测挂载的 `/workspace` 工作区属主），使用 `su-exec` 切换至匹配的本地普通用户（默认 `dev`），彻底解决宿主机代码与容器构建产物的权限冲突问题。
-- **全自动 direnv 深度集成**：内置 `direnv` 及其 shell hook，配合预置白名单（`/workspace`）与 `use mise` 扩展，容器启动或切换目录时自动加载 `.envrc` / 环境变量，完全免除授权弹窗。
+- **全自动 direnv 深度集成**：内置 `direnv` 及其 shell hook，配合预置系统级配置（`/etc/direnv/direnvrc`）、白名单（`/workspace`）与统一数据持久化（`/data/direnv`），容器启动或切换目录时自动加载 `.envrc` / 环境变量，完全免除授权弹窗。
 - **内置 AI 编程套件与统一存储**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），并通过统一数据卷与全局目录映射（`coding-config:/data/coding-config`）自动软链接汇聚 `~/.claude`、`~/.codex`、`~/.gemini` 与 `~/.config/opencode`，实现高内聚的一键凭证备份、迁移与跨镜像共享。
 - **标准化 Dev Containers 规范支持**：全量在各层级镜像中预置标准化 `.devcontainer/devcontainer.json` 配置，将安全能力（`cap_add`、`seccomp`）、环境变量及持久化挂载声明为通用工业标准，开箱即用无缝支持 VS Code、Cursor、Zed 等现代容器化 IDE。
 - **统一自适应 Entrypoint**：统一的入口引导脚本，自适应支持普通用户（`dev`）与 root 运行模式，不仅自动探测工作区内 9 种层级的 mise 配置文件，还自动初始化与加载 direnv 环境，自动建立 AI 配置软链接，子镜像零维护。
@@ -100,7 +100,7 @@ flowchart TD
 - **开发语言与运行时（mise）**：Python `latest`
 - **AI 辅助工具**：`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`
 - **通用工具**：`direnv`、`jq`、`ripgrep`、`gh`（GitHub CLI）
-- **核心组件**：统一智能入口脚本 `/usr/local/bin/mise-entrypoint.sh`、direnv 白名单与 mise 联动配置
+- **核心组件**：统一智能入口脚本 `/usr/local/bin/mise-entrypoint.sh`、`/etc/direnv/direnvrc` 系统级联动扩展与 direnv 白名单配置
 
 ### 2. npins-common (Nix/npins 通用环境)
 
@@ -233,9 +233,9 @@ flowchart TD
 ### Direnv 深度自动加载机制
 
 1. **零阻断白名单安全机制**：
-   镜像默认在系统全局 `/etc/xdg/direnv/direnv.toml` 中将 `/workspace` 添加至 `whitelist.prefix`，开发者在宿主机挂载代码或新建 `.envrc` 时无需手动执行 `direnv allow`，开箱即用。
+   镜像默认在系统全局 `/etc/direnv/direnv.toml` 中将 `/workspace` 添加至 `whitelist.prefix`，开发者在宿主机挂载代码或新建 `.envrc` 时无需手动执行 `direnv allow`，开箱即用。
 2. **Direnv 与 Mise 双向原生联动**：
-   镜像内置系统级配置 `/etc/xdg/direnv/direnvrc` 包含 `mise direnv activate` 扩展，开发者可在 `.envrc` 中直接写入 `use mise` 享受按需环境切换。
+   镜像内置系统级配置 `/etc/direnv/direnvrc` 包含 `mise direnv activate` 扩展并链式加载用户自定义配置，开发者可在 `.envrc` 中直接写入 `use mise` 享受按需环境切换。
 3. **交互与非交互双模态环境变量导出**：
    - **交互式会话**（SSH、`docker exec`、VS Code 终端）：通过系统级 `/etc/bash.bashrc` 中的全局钩子实现 `cd` 目录时自动热切换环境变量。
    - **非交互式/守护进程**（容器启动、后台命令）：Entrypoint 启动时主动通过 `direnv export bash` 将 `.envrc` 环境变量注入至主进程上下文。
@@ -248,13 +248,13 @@ flowchart TD
 
 为了避免在 Compose 或容器运行参数中分别声明 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.config/opencode` 等多个分散的命名卷，Coding Images 实施统一的高内聚存储映射策略：
 
-1. **全局统一存储卷**：所有 AI 编程工具的会话状态、认证 Token 与配置文件全部汇聚持久化到单一命名数据卷 `coding-config:/data/coding-config`。
+1. **全局统一存储卷**：所有 AI 编程工具的会话状态、认证 Token 与配置文件全部汇聚持久化到单一命名数据卷 `coding-config:/data/coding-config`，direnv 数据与授权状态统一持久化至 `direnv-data:/data/direnv`。
 2. **启动自适应软链接**：容器启动时，入口脚本 `mise-entrypoint.sh` 自动在当前工作用户的主目录下创建指向 `/data/coding-config` 子目录的软链接：
    - `${USER_HOME}/.claude` -> `/data/coding-config/claude`
    - `${USER_HOME}/.codex` -> `/data/coding-config/codex`
    - `${USER_HOME}/.gemini` -> `/data/coding-config/gemini`
    - `${USER_HOME}/.config/opencode` -> `/data/coding-config/opencode`
-3. **备份与共享内聚**：开发者只需备份、恢复或挂载单个 `coding-config` 数据卷，即可完成全部 AI 助手环境的状态保留与跨容器共享。
+3. **备份与共享内聚**：开发者只需挂载或备份统一的数据卷（`coding-config`、`direnv-data`），即可完成环境状态保留与跨容器共享。direnv 数据路径通过全局环境变量 `XDG_DATA_HOME=/data` 直接读写 `/data/direnv`，完全独立于用户家目录且无需软链接。
 
 ```mermaid
 flowchart LR
@@ -270,7 +270,7 @@ flowchart LR
 
     subgraph DevContainer["开发容器 (dev / root 模式)"]
         WS["/workspace"]
-        P0["${CONTAINER_HOME:-/home/dev}/.local/share/direnv"]
+        DataDirenv["/data/direnv<br/>(direnv 数据与授权)"]
         Data["/data/coding-config"]
         P1["~/.claude"]
         P2["~/.codex"]
@@ -279,7 +279,7 @@ flowchart LR
     end
 
     Code -->|目录挂载| WS
-    V0 <-->|卷持久化| P0
+    V0 <-->|卷持久化| DataDirenv
     VAI <-->|统一卷持久化| Data
     Data -.->|自适应软链接| P1
     Data -.->|自适应软链接| P2
@@ -357,7 +357,7 @@ services:
       # 持久化 sccache 编译缓存
       - sccache-cache:/data/sccache
       # 持久化 direnv 数据
-      - direnv-data:${CONTAINER_HOME:-/home/dev}/.local/share/direnv
+      - direnv-data:/data/direnv
       # 统一持久化所有 AI 工具配置与会话状态
       - coding-config:/data/coding-config
 
@@ -412,7 +412,7 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
     "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
     "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
-    "source=direnv-data,target=/home/dev/.local/share/direnv,type=volume",
+    "source=direnv-data,target=/data/direnv,type=volume",
     "source=coding-config,target=/data/coding-config,type=volume"
   ],
   "customizations": {

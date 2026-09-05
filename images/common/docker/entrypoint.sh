@@ -53,7 +53,6 @@ else
 fi
 
 # Ensure user-specific Cargo, Nix profile, and PNPM paths are dynamically configured for the active user
-export NIX_PROFILE="${NIX_PROFILE:-/nix/var/nix/profiles/default}"
 USER_PATHS="$USER_HOME/.cargo/bin:$USER_HOME/.nix-profile/bin"
 if [ -n "$PNPM_HOME" ]; then
     USER_PATHS="$PNPM_HOME/bin:$PNPM_HOME:$USER_PATHS"
@@ -64,13 +63,17 @@ export PATH="$USER_PATHS:$PATH"
 # Unified AI Credentials & Tool Config Setup
 # ==========================================
 CODING_CONFIG_DIR="${CODING_CONFIG_DIR:-/data/coding-config}"
+DIRENV_DATA_DIR="${DIRENV_DATA_DIR:-/data/direnv}"
 mkdir -p "$CODING_CONFIG_DIR/claude" \
          "$CODING_CONFIG_DIR/codex" \
          "$CODING_CONFIG_DIR/gemini" \
-         "$CODING_CONFIG_DIR/opencode"
+         "$CODING_CONFIG_DIR/opencode" \
+         "$DIRENV_DATA_DIR"
+
+chmod 1777 "$DIRENV_DATA_DIR" 2>/dev/null || true
 
 if [ "$TARGET_UID" -ne 0 ]; then
-    chown -R "$TARGET_UID:$TARGET_GID" "$CODING_CONFIG_DIR" 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" "$CODING_CONFIG_DIR" "$DIRENV_DATA_DIR" 2>/dev/null || true
 fi
 
 # Helper function to create symlinks from home directories to unified storage
@@ -205,17 +208,29 @@ if [ -n "$FOUND_PATH" ]; then
     CONFIG_FOUND=1
 fi
 
-# Ensure system-wide direnv configuration and workspace whitelist are in place
-if [ -w /etc/xdg/direnv ] || [ -w /etc/xdg/direnv/direnv.toml 2>/dev/null ]; then
-    if [ ! -f /etc/xdg/direnv/direnv.toml ] || ! grep -q "\"$WORKSPACE\"" /etc/xdg/direnv/direnv.toml 2>/dev/null; then
+# Ensure system-wide direnv configuration and workspace whitelist are in place (/etc/direnv)
+mkdir -p /etc/direnv 2>/dev/null || true
+if [ -w /etc/direnv ] || [ -w /etc/direnv/direnv.toml 2>/dev/null ]; then
+    if [ ! -f /etc/direnv/direnv.toml ] || ! grep -q "\"$WORKSPACE\"" /etc/direnv/direnv.toml 2>/dev/null; then
         if [ "$WORKSPACE" = "/workspace" ]; then
-            printf '[whitelist]\nprefix = [ "/workspace" ]\n' > /etc/xdg/direnv/direnv.toml 2>/dev/null || true
+            printf '[whitelist]\nprefix = [ "/workspace" ]\n' > /etc/direnv/direnv.toml 2>/dev/null || true
         else
-            printf '[whitelist]\nprefix = [ "/workspace", "%s" ]\n' "$WORKSPACE" > /etc/xdg/direnv/direnv.toml 2>/dev/null || true
+            printf '[whitelist]\nprefix = [ "/workspace", "%s" ]\n' "$WORKSPACE" > /etc/direnv/direnv.toml 2>/dev/null || true
         fi
     fi
-    if [ ! -f /etc/xdg/direnv/direnvrc ]; then
-        printf 'type -P mise &>/dev/null && eval "$(mise direnv activate 2>/dev/null || true)"\n' > /etc/xdg/direnv/direnvrc 2>/dev/null || true
+    if [ ! -f /etc/direnv/direnvrc ]; then
+        cat << 'EOF' > /etc/direnv/direnvrc 2>/dev/null || true
+type -P mise &>/dev/null && eval "$(mise direnv activate 2>/dev/null || true)"
+
+# Load user-configuration if present (~/.direnvrc or ~/.config/direnv/direnvrc)
+direnv_config_dir_home="${DIRENV_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/direnv}"
+if [[ -f "$direnv_config_dir_home/direnvrc" ]]; then
+  source "$direnv_config_dir_home/direnvrc" >&2
+elif [[ -f "$HOME/.direnvrc" ]]; then
+  source "$HOME/.direnvrc" >&2
+fi
+unset direnv_config_dir_home
+EOF
     fi
 fi
 

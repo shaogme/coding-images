@@ -42,7 +42,7 @@ services:
       # Persist Podman containers and cached cross-compilation toolchain images
       - podman-containers:/var/lib/containers
       # Persist direnv data
-      - direnv-data:${CONTAINER_HOME:-/home/dev}/.local/share/direnv
+      - direnv-data:/data/direnv
       # Persist unified AI credentials and tool configurations
       - coding-config:/data/coding-config
 
