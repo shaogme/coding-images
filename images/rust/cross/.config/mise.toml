@@ -7,13 +7,13 @@ binstall_quickinstall = true
 # Rust 交叉编译核心工具
 "cargo:cross" = {
     version = "latest",
-    depends = ["cargo:cargo-binstall"],
+    depends = ["cargo-binstall"],
 }
 
 # 可选搭配：基于 Zig 的 C/C++ 交叉编译工具
 "cargo:cargo-zigbuild" = {
     version = "latest",
-    depends = ["cargo:cargo-binstall"],
+    depends = ["cargo-binstall"],
 }
 
 [env]

@@ -10,22 +10,21 @@ rust = {
 }
 
 # Rust 工具
-"cargo:cargo-binstall" = {
+cargo-binstall = {
     version = "latest",
-    depends = ["rust"],
+}
+
+sccache = {
+    version = "latest",
 }
 
 "cargo:cargo-nextest" = {
     version = "latest",
-    depends = ["cargo:cargo-binstall"],
+    depends = ["cargo-binstall"],
 }
 
 "cargo:cargo-sweep" = {
     version = "latest",
-    depends = ["cargo:cargo-binstall"],
+    depends = ["cargo-binstall"],
 }
 
-"cargo:sccache" = {
-    version = "latest",
-    depends = ["cargo:cargo-binstall"],
-}
