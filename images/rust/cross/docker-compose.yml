@@ -52,6 +52,5 @@ volumes:
   cargo-git:
   sccache-cache:
   podman-containers:
-  mise-cache:
   direnv-data:
   coding-config:

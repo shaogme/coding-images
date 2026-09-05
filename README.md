@@ -367,7 +367,6 @@ volumes:
   cargo-registry:
   cargo-git:
   sccache-cache:
-  mise-cache:
   direnv-data:
   coding-config:
 ```

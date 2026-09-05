@@ -28,6 +28,5 @@ services:
       - coding-config:/data/coding-config
 
 volumes:
-  mise-cache:
   direnv-data:
   coding-config:
