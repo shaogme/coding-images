@@ -19,7 +19,6 @@
   ],
   "containerEnv": {
     "ROOT_PASSWORD": "root",
-    "MISE_YES": "1",
     "CARGO_INCREMENTAL": "0",
     "CARGO_TARGET_DIR": "/data/.cargo/target",
     "RUSTC_WRAPPER": "sccache",

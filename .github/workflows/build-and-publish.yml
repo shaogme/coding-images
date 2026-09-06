@@ -53,9 +53,11 @@ jobs:
       stage_0: ${{ steps.set-matrix.outputs.stage_0 }}
       stage_1: ${{ steps.set-matrix.outputs.stage_1 }}
       stage_2: ${{ steps.set-matrix.outputs.stage_2 }}
+      stage_3: ${{ steps.set-matrix.outputs.stage_3 }}
       has_stage_0: ${{ steps.set-matrix.outputs.has_stage_0 }}
       has_stage_1: ${{ steps.set-matrix.outputs.has_stage_1 }}
       has_stage_2: ${{ steps.set-matrix.outputs.has_stage_2 }}
+      has_stage_3: ${{ steps.set-matrix.outputs.has_stage_3 }}
       should_push: ${{ steps.set-params.outputs.should_push }}
       extra_tag: ${{ steps.set-params.outputs.extra_tag }}
     steps:
@@ -101,7 +103,7 @@ jobs:
     secrets: inherit
 
   # --------------------------------------------------------------------------
-  # 3. Stage 1: Layer 1 images based on common (rust-common, npins-common)
+  # 3. Stage 1: Layer 1 images based on common (podman, npins-common)
   # --------------------------------------------------------------------------
   build-stage-1:
     name: Stage 1
@@ -121,7 +123,7 @@ jobs:
     secrets: inherit
 
   # --------------------------------------------------------------------------
-  # 4. Stage 2: Layer 2 images based on rust-common (rust-wasm, npins-rust)
+  # 4. Stage 2: Layer 2 images based on podman (rust-common)
   # --------------------------------------------------------------------------
   build-stage-2:
     name: Stage 2
@@ -130,6 +132,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.discover-images.outputs.stage_2) }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: ${{ matrix.image_name }}
+      context: ${{ matrix.context }}
+      dockerfile: ${{ matrix.dockerfile }}
+      ancestors: ${{ matrix.ancestors }}
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  # --------------------------------------------------------------------------
+  # 5. Stage 3: Layer 3 images based on rust-common (rust-wasm, rust-cross, npins-rust)
+  # --------------------------------------------------------------------------
+  build-stage-3:
+    name: Stage 3
+    needs: [discover-images, build-stage-2]
+    if: always() && needs.discover-images.outputs.has_stage_3 == 'true' && (needs.build-stage-2.result == 'success' || needs.discover-images.outputs.has_stage_2 != 'true')
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover-images.outputs.stage_3) }}
     uses: ./.github/workflows/build-single-image.yml
     with:
       image_name: ${{ matrix.image_name }}

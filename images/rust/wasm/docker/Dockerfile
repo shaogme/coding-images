@@ -6,8 +6,7 @@ WORKDIR /workspace
 
 # Install WebAssembly and headless browser testing packages via nix-env
 RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    echo "sandbox = false" >> /etc/nix/nix.conf && \
-    nix-env --option sandbox false -iA \
+    nix-env -iA \
         nixpkgs.fontconfig \
         nixpkgs.dejavu_fonts \
         nixpkgs.mesa \

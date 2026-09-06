@@ -10,6 +10,7 @@ COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/mise-entrypoint.sh
 # Configure global mise, nix, binstall, cargo, and devbox environment variables
 ENV MISE_DATA_DIR=/usr/local/share/mise \
     MISE_CONFIG_DIR=/etc/mise \
+    MISE_YES=1 \
     XDG_DATA_HOME=/data \
     NIX_PROFILE=/nix/var/nix/profiles/default \
     BINSTALL_NO_CONFIRM=true \
@@ -19,7 +20,7 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
 
 # Install system-level binaries via nix-env into system default profile
 RUN echo "sandbox = false" >> /etc/nix/nix.conf && \
-    nix-env --option sandbox false -iA \
+    nix-env -iA \
         nixpkgs.bubblewrap
 
 # Configure global interactive shell hooks for mise and devbox

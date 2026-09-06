@@ -1,6 +1,6 @@
 # Coding Images
 
-Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `rust-common` / `npins-common` -> `rust-wasm` / `rust-cross` / `npins-rust`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
+Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `podman` / `npins-common` -> `rust-common` -> `rust-wasm` / `rust-cross` / `npins-rust`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
 
 ---
 
@@ -10,11 +10,12 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - [镜像继承拓扑与环境清单](#镜像继承拓扑与环境清单)
   - [继承关系拓扑图](#继承关系拓扑图)
   - [1. common (基础开发环境)](#1-common-基础开发环境)
-  - [2. npins-common (Nix/npins 通用环境)](#2-npins-common-nixnpins-通用环境)
-  - [3. rust-common (Rust 核心开发环境)](#3-rust-common-rust-核心开发环境)
-  - [4. npins-rust (Nix/npins + Rust 环境)](#4-npins-rust-nixnpins--rust-环境)
-  - [5. rust-wasm (Rust WebAssembly 环境)](#5-rust-wasm-rust-webassembly-环境)
-  - [6. rust-cross (Rust 交叉编译与容器环境)](#6-rust-cross-rust-交叉编译与容器环境)
+  - [2. podman (Podman 容器引擎环境)](#2-podman-podman-容器引擎环境)
+  - [3. npins-common (Nix/npins 通用环境)](#3-npins-common-nixnpins-通用环境)
+  - [4. rust-common (Rust 核心开发环境)](#4-rust-common-rust-核心开发环境)
+  - [5. npins-rust (Nix/npins + Rust 环境)](#5-npins-rust-nixnpins--rust-环境)
+  - [6. rust-wasm (Rust WebAssembly 环境)](#6-rust-wasm-rust-webassembly-环境)
+  - [7. rust-cross (Rust 交叉编译与容器环境)](#7-rust-cross-rust-交叉编译与容器环境)
 - [镜像架构与设计机制](#镜像架构与设计机制)
   - [树状分层与 mise conf.d 模块化配置](#树状分层与-mise-confd-模块化配置)
   - [统一智能 Entrypoint 引导流程](#统一智能-entrypoint-引导流程)
@@ -60,20 +61,23 @@ flowchart TD
     Upstream["上游底座: ghcr.io/shaogme/nixos-dockers/mise:latest<br/>(NixOS + mise 基础系统)"]
     
     Common["【层级 0】common<br/>• bubblewrap<br/>• Python + AI 编码工具套件<br/>• 通用 CLI (devbox, jq, ripgrep, gh)<br/>• 统一智能 entrypoint.sh"]
-    
-    RustCommon["【层级 1】rust-common<br/>• Node.js / pnpm / yarn<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / cargo-binstall<br/>• sccache / cargo-sweep"]
+
+    Podman["【层级 1】podman<br/>• Podman (Daemonless 容器引擎)<br/>• crun / conmon<br/>• docker / docker-compose 伪装包装器"]
     
     NpinsCommon["【层级 1】npins-common<br/>• nixpkgs.npins"]
-    
-    RustWasm["【层级 2】rust-wasm<br/>• wasm32 交叉编译 Target<br/>• wasm-pack / wasm-bindgen / wasmi<br/>• Headless Firefox / geckodriver"]
-    
-    RustCross["【层级 2】rust-cross<br/>• Podman (Daemonless 容器引擎)<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild / crun / fuse-overlayfs"]
 
-    NpinsRust["【层级 2】npins-rust<br/>• nixpkgs.npins"]
+    RustCommon["【层级 2】rust-common<br/>• Node.js / pnpm / yarn<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / cargo-binstall<br/>• sccache / cargo-sweep<br/>• 内置 Podman 容器运行时"]
+    
+    RustWasm["【层级 3】rust-wasm<br/>• wasm32 交叉编译 Target<br/>• wasm-pack / wasm-bindgen / wasmi<br/>• Headless Firefox / geckodriver"]
+    
+    RustCross["【层级 3】rust-cross<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild<br/>• 复用底座 Podman 容器引擎"]
+
+    NpinsRust["【层级 3】npins-rust<br/>• nixpkgs.npins"]
 
     Upstream --> Common
+    Common --> Podman
     Common --> NpinsCommon
-    Common --> RustCommon
+    Podman --> RustCommon
     RustCommon --> NpinsRust
     RustCommon --> RustWasm
     RustCommon --> RustCross
@@ -81,10 +85,12 @@ flowchart TD
     classDef base fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
     classDef l1 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
     classDef l2 fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+    classDef l3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
 
     class Common base;
-    class NpinsCommon,RustCommon l1;
-    class NpinsRust,RustWasm,RustCross l2;
+    class Podman,NpinsCommon l1;
+    class RustCommon l2;
+    class NpinsRust,RustWasm,RustCross l3;
 ```
 
 ---
@@ -101,7 +107,19 @@ flowchart TD
 - **通用与环境工具**：`devbox`、`jq`、`ripgrep`、`gh`（GitHub CLI）
 - **核心组件**：统一智能入口脚本 `/usr/local/bin/mise-entrypoint.sh`、Devbox 自动初始化与加载环境支持
 
-### 2. npins-common (Nix/npins 通用环境)
+### 2. podman (Podman 容器引擎环境)
+
+在 `common` 基础上扩展 Podman 容器运行时环境，原生支持免守护进程容器执行（DinD/PinP）。
+
+- **镜像地址**：`ghcr.io/shaogme/coding-images/podman:latest`
+- **基础镜像**：`ghcr.io/shaogme/coding-images/common:latest`
+- **包含 common 的所有环境**，并额外增加：
+  - **系统包（Nix）**：`podman`、`crun`、`conmon`
+  - **Docker 命令透明伪装**：内置 `/usr/local/bin/docker` 与 `docker-compose` 包装脚本（透明转发至 Podman）及 `/var/run/docker.sock` 软链接，硬编码 `docker` 命令的工具无需修改即可直接运行
+  - **容器引擎配置**：预置 `/etc/containers/containers.conf`（`cgroupfs` 资源管理器、`file` 事件日志、`crun` 运行时）
+  - **Docker Compose 支持**：提供 `devices: [/dev/fuse, /dev/net/tun]`、`security_opt: [seccomp:unconfined, label:disable]` 与 `podman-containers` 独立命名卷持久化机制
+
+### 3. npins-common (Nix/npins 通用环境)
 
 在 `common` 基础上扩展 npins 依赖锁定工具。
 
@@ -109,13 +127,13 @@ flowchart TD
 - **基础镜像**：`ghcr.io/shaogme/coding-images/common:latest`
 - **包含 common 的所有环境**，并额外增加系统包：`nixpkgs.npins`
 
-### 3. rust-common (Rust 核心开发环境)
+### 4. rust-common (Rust 核心开发环境)
 
-专为 Rust 核心开发打造的完整环境，集成稳定版与每日构建版编译器及前端辅助工具链。
+专为 Rust 核心开发打造的完整环境，直接基于 `podman` 镜像构建，全量具备开箱即用的 Podman 容器运行时，集成稳定版与每日构建版编译器及前端辅助工具链。
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-common:latest`
-- **基础镜像**：`ghcr.io/shaogme/coding-images/common:latest`
-- **包含 common 的所有环境**，并额外增加：
+- **基础镜像**：`ghcr.io/shaogme/coding-images/podman:latest`
+- **包含 podman 的所有环境**（具备开箱即用的 Podman 容器运行时），并额外增加：
   - **开发语言与运行时（mise）**：
     - Rust: `stable`（包含 `rust-src` 源码组件）
     - Rust: `nightly`（包含 `rust-src` 源码组件）
@@ -128,7 +146,7 @@ flowchart TD
   - **Nightly 工具链多架构别名桥接（Symlink Alias）**：
     通过 `mise` 声明式统一管理并锁定特定日期的 `nightly` 版本快照（保证构建确定性与缓存稳定性），在构建阶段自适应宿主架构（`x86_64` / `aarch64`）在 `$RUSTUP_HOME/toolchains` 中自动建立 `nightly-<triple>` 与 `nightly` 软链接别名，无缝兼容 `cargo +nightly`、`rustup target add` 与各类 IDE 插件的原生习惯。
 
-### 4. npins-rust (Nix/npins + Rust 环境)
+### 5. npins-rust (Nix/npins + Rust 环境)
 
 在 `rust-common` 基础上扩展 npins 工具。
 
@@ -136,7 +154,7 @@ flowchart TD
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
 - **包含 rust-common 的所有环境**，并额外增加系统包：`nixpkgs.npins`
 
-### 5. rust-wasm (Rust WebAssembly 环境)
+### 6. rust-wasm (Rust WebAssembly 环境)
 
 在 `rust-common` 基础上扩展 WebAssembly 交叉编译与 Headless 浏览器测试环境。
 
@@ -148,18 +166,16 @@ flowchart TD
   - **WebAssembly 工具链**：`wasm-pack`、`wasm-bindgen-cli`、`wasmi_cli`
   - **环境配置**：静默 Firefox 企业策略与 Headless 渲染配置
 
-### 6. rust-cross (Rust 交叉编译与容器环境)
+### 7. rust-cross (Rust 交叉编译与容器环境)
 
-在 `rust-common` 基础上扩展 Podman 容器运行时与 Rust 交叉编译套件，原生支持在容器内免后台守护进程执行 `cross` 多架构交叉编译。
+在 `rust-common` 基础上扩展 Rust 交叉编译套件，直接复用底座由 `podman` 镜像赋予的容器引擎能力，原生支持在容器内免后台守护进程执行 `cross` 多架构交叉编译。
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-cross:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
-- **包含 rust-common 的所有环境**，并额外增加：
-  - **系统包（Nix）**：`podman`、`crun`、`conmon`、`fuse-overlayfs`、`slirp4netns`
+- **包含 rust-common 的所有环境**（直接继承底层 Podman 容器引擎），并额外增加：
   - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
-  - **Docker 命令透明伪装**：内置 `/usr/local/bin/docker` 与 `docker-compose` 包装脚本（透明转发至 Podman）及 `/var/run/docker.sock` 软链接，硬编码 `docker` 命令的各类工具（如 cross 默认逻辑、Makefile 等）无需修改即可直接运行
-  - **容器引擎配置**：预置 `/etc/containers/` 存储配置（`fuse-overlayfs` 驱动、`cgroupfs` 管理器）及 `CROSS_CONTAINER_ENGINE=podman` 环境变量
-  - **Docker Compose 支持**：提供 `devices: [/dev/fuse]` 与 `podman-containers` 独立命名卷持久化机制
+  - **轻量解耦设计**：Podman、运行时配置与 Docker 透明伪装已由基础层 `podman` / `rust-common` 提供，`rust-cross` 聚焦于跨平台编译工具链本身，杜绝重复安装
+  - **Docker Compose 支持**：继承统一的 `devices: [/dev/fuse, /dev/net/tun]` 与 `podman-containers` 命名卷持久化机制
 
 ---
 
@@ -179,26 +195,32 @@ flowchart TB
             NixBase["Nix: bubblewrap"]
         end
 
-        subgraph RustLayer["2. rust-common 镜像层 (20-rust.toml)"]
+        subgraph PodmanLayer["2. podman 镜像层"]
+            NixPodman["Nix: podman / crun / conmon"]
+            Wrappers["docker / docker-compose 伪装包装器"]
+            ContainersConf["/etc/containers/containers.conf 配置"]
+        end
+
+        subgraph RustLayer["3. rust-common 镜像层 (20-rust.toml)"]
             RustToolchains["Rust stable & nightly (rust-src)"]
             NodeTools["Node.js / pnpm / yarn"]
             CargoTools["cargo-nextest / cargo-binstall"]
         end
 
-        subgraph WasmLayer["3. rust-wasm 镜像层 (30-wasm.toml)"]
+        subgraph WasmLayer["4. rust-wasm 镜像层 (30-wasm.toml)"]
             WasmTargets["Rust wasm32-unknown-unknown"]
             WasmTools["wasm-pack / wasm-bindgen / wasmi_cli"]
             NixWasm["Nix: fontconfig / firefox / geckodriver"]
         end
 
-        subgraph CrossLayer["3. rust-cross 镜像层 (30-cross.toml)"]
+        subgraph CrossLayer["4. rust-cross 镜像层 (30-cross.toml)"]
             CrossTools["cross / cargo-zigbuild"]
-            NixCross["Nix: podman / crun / fuse-overlayfs"]
         end
 
         WasmLayer --> RustLayer
         CrossLayer --> RustLayer
-        RustLayer --> CommonLayer
+        RustLayer --> PodmanLayer
+        PodmanLayer --> CommonLayer
     end
 ```
 
@@ -206,7 +228,7 @@ flowchart TB
    - `10-common.toml` -> 由 `common` 注入
    - `20-rust.toml` -> 由 `rust-common` 注入
    - `30-wasm.toml` -> 由 `rust-wasm` 注入（继承并添加 Rust WebAssembly targets）
-   - `30-cross.toml` -> 由 `rust-cross` 注入（继承并配置 `cross` 与 Podman 容器引擎）
+   - `30-cross.toml` -> 由 `rust-cross` 注入（继承并配置 `cross` 交叉编译工具）
 2. **全局版本锁定（Global Lockfile）**：各镜像在构建时通过 `mise lock --global` 固化当前工具链的确定性版本与 options/targets 元数据，杜绝 `nightly` 跨天版本漂移与 Target 继承丢失。
 
 ### 统一智能 Entrypoint 引导流程
@@ -329,7 +351,6 @@ services:
     image: ghcr.io/shaogme/coding-images/rust-common:latest
     environment:
       - ROOT_PASSWORD=root
-      - MISE_YES=1
       - HOST_UID=${HOST_UID:-1000:1000} # 自适应宿主机 UID/GID
       - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
       - CARGO_INCREMENTAL=0 # sccache 需关闭增量编译以生效缓存
@@ -339,10 +360,14 @@ services:
       - SCCACHE_DISABLE=0 # 设为 1 或设置 ENABLE_SCCACHE=0 可显式关闭 sccache
     security_opt:
       - seccomp:unconfined
+      - label:disable
     cap_add:
       - SYS_ADMIN
       - SYS_PTRACE
       - NET_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+      - /dev/net/tun:/dev/net/tun
     tty: true
 
   dev:
@@ -358,6 +383,8 @@ services:
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
       # 持久化 sccache 编译缓存
       - sccache-cache:/data/sccache
+      # 持久化 Podman 容器与镜像
+      - podman-containers:/var/lib/containers
       # 持久化 devbox 数据
       - devbox-data:/data/devbox
       # 统一持久化所有 AI 工具配置与会话状态
@@ -368,6 +395,7 @@ volumes:
   cargo-registry:
   cargo-git:
   sccache-cache:
+  podman-containers:
   devbox-data:
   coding-config:
 ```
@@ -405,7 +433,6 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
   ],
   "containerEnv": {
     "ROOT_PASSWORD": "root",
-    "MISE_YES": "1",
     "CARGO_INCREMENTAL": "1",
     "CARGO_TARGET_DIR": "/data/.cargo/target"
   },
@@ -479,7 +506,7 @@ python3 scripts/discover_images.py --format matrix
 仓库内置了 `scripts/build_local.sh` 脚本，支持按依赖层级拓扑构建镜像：
 
 ```bash
-# 构建全部镜像（按 Stage 0 -> Stage 1 -> Stage 2 拓扑构建）
+# 构建全部镜像（按 Stage 0 -> Stage 1 -> Stage 2 -> Stage 3 拓扑构建）
 ./scripts/build_local.sh all
 
 # 单独构建指定镜像（如 rust-wasm）
@@ -494,16 +521,18 @@ python3 scripts/discover_images.py --format matrix
 
 ```mermaid
 flowchart TD
-    Trigger(["触发构建: push / schedule / workflow_dispatch"]) --> Discover["阶段一: discover-images<br/>计算 3 级 Stage 构建矩阵"]
+    Trigger(["触发构建: push / schedule / workflow_dispatch"]) --> Discover["阶段一: discover-images<br/>计算 4 级 Stage 构建矩阵"]
 
     Discover --> Stage0["阶段二: Stage 0 (Base)<br/>构建 common 多架构镜像并发布"]
-    Stage0 --> Stage1["阶段三: Stage 1 (Layer 1)<br/>并行构建 rust-common 与 npins-common 并发布"]
-    Stage1 --> Stage2["阶段四: Stage 2 (Layer 2)<br/>并行构建 rust-wasm、rust-cross 与 npins-rust 并发布"]
+    Stage0 --> Stage1["阶段三: Stage 1 (Layer 1)<br/>并行构建 podman 与 npins-common 并发布"]
+    Stage1 --> Stage2["阶段四: Stage 2 (Layer 2)<br/>构建基于 podman 的 rust-common 并发布"]
+    Stage2 --> Stage3["阶段五: Stage 3 (Layer 3)<br/>并行构建 rust-wasm、rust-cross 与 npins-rust 并发布"]
 ```
 
 1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建，合并推送 Multi-Arch Manifest。
-2. **Stage 1 (Layer 1)**：并行构建基于 `common` 的 `rust-common` 与 `npins-common`。
-3. **Stage 2 (Layer 2)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross` 与 `npins-rust`。
+2. **Stage 1 (Layer 1)**：并行构建基于 `common` 的 `podman` 与 `npins-common`。
+3. **Stage 2 (Layer 2)**：构建基于 `podman` 的 `rust-common`。
+4. **Stage 3 (Layer 3)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross` 与 `npins-rust`。
 
 ### 镜像标签管理策略
 
@@ -522,7 +551,7 @@ flowchart TD
 │   └── devcontainer.json            # 根工作区 Dev Container 标准化配置
 ├── .github/
 │   └── workflows/
-│       ├── build-and-publish.yml    # 3 阶段拓扑编排工作流
+│       ├── build-and-publish.yml    # 4 阶段拓扑编排工作流
 │       └── build-single-image.yml   # 跨架构原生构建与 Manifest 合并复用工作流
 ├── images/
 │   ├── common/
@@ -547,6 +576,12 @@ flowchart TD
 │   │       ├── docker/
 │   │       │   └── Dockerfile       # npins-rust 构建规则 (FROM rust-common)
 │   │       └── docker-compose.yml
+│   ├── podman/
+│   │   ├── .devcontainer/
+│   │   │   └── devcontainer.json    # podman Dev Container 配置
+│   │   ├── docker/
+│   │   │   └── Dockerfile           # podman 构建规则 (FROM common)
+│   │   └── docker-compose.yml
 │   └── rust/
 │       ├── common/
 │       │   ├── .config/
@@ -554,11 +589,11 @@ flowchart TD
 │       │   ├── .devcontainer/
 │       │   │   └── devcontainer.json # rust-common Dev Container 配置
 │       │   ├── docker/
-│       │   │   └── Dockerfile       # rust-common 构建规则 (FROM common)
+│       │   │   └── Dockerfile       # rust-common 构建规则 (FROM podman)
 │       │   └── docker-compose.yml
 │       ├── cross/
 │       │   ├── .config/
-│       │   │   └── mise.toml        # 交叉编译工具与 Podman 引擎 (30-cross.toml)
+│       │   │   └── mise.toml        # 交叉编译工具配置 (30-cross.toml)
 │       │   ├── .devcontainer/
 │       │   │   └── devcontainer.json # rust-cross Dev Container 配置
 │       │   ├── docker/

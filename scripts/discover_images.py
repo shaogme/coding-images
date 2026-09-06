@@ -14,10 +14,11 @@ from pathlib import Path
 IMAGE_DEPENDENCY_GRAPH = {
     "common": {"stage": 0, "parent": None},
     "npins-common": {"stage": 1, "parent": "common"},
-    "rust-common": {"stage": 1, "parent": "common"},
-    "npins-rust": {"stage": 2, "parent": "rust-common"},
-    "rust-wasm": {"stage": 2, "parent": "rust-common"},
-    "rust-cross": {"stage": 2, "parent": "rust-common"},
+    "podman": {"stage": 1, "parent": "common"},
+    "rust-common": {"stage": 2, "parent": "podman"},
+    "npins-rust": {"stage": 3, "parent": "rust-common"},
+    "rust-wasm": {"stage": 3, "parent": "rust-common"},
+    "rust-cross": {"stage": 3, "parent": "rust-common"},
 }
 
 
@@ -113,9 +114,10 @@ def get_staged_matrices(images: list, is_single_target: bool):
             0: images,
             1: [],
             2: [],
+            3: [],
         }
 
-    stages = {0: [], 1: [], 2: []}
+    stages = {0: [], 1: [], 2: [], 3: []}
     for img in images:
         stage = img.get("stage", 0)
         if stage not in stages:
@@ -175,7 +177,7 @@ def main():
         with open(args.github_output, "a", encoding="utf-8") as f:
             f.write(f"matrix={matrix_json}\n")
             f.write(f"count={len(images)}\n")
-            for st_num in (0, 1, 2):
+            for st_num in (0, 1, 2, 3):
                 st_imgs = staged.get(st_num, [])
                 st_json = json.dumps({"include": st_imgs})
                 f.write(f"stage_{st_num}={st_json}\n")

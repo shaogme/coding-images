@@ -1,32 +1,39 @@
 services:
   # Base configuration for the application
   app-base: &app-base
-    image: ghcr.io/shaogme/coding-images/common:latest
+    image: ghcr.io/shaogme/coding-images/podman:latest
     environment:
       - ROOT_PASSWORD=root # Set your secure password here
       - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
       - HOST_UID=${HOST_UID:-1000:1000} # Adaptive UID/GID mapping to avoid file permission conflicts
       - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
     security_opt:
-      - seccomp:unconfined # Required for some low-level operations
+      - seccomp:unconfined # Required for inner container execution and trace
+      - label:disable # Disable SELinux labeling separation for containers
     cap_add:
       - SYS_ADMIN
       - SYS_PTRACE
       - NET_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
+      - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
     tty: true
 
   # Develop mode: Mounts local directory for hot-reloading (Default)
   dev:
     <<: *app-base
-    container_name: common-dev
+    container_name: podman-dev
     volumes:
       # Mount host source code
       - .:/workspace
+      # Persist Podman containers and cached container images
+      - podman-containers:/var/lib/containers
       # Persist devbox data
       - devbox-data:/data/devbox
       # Persist unified AI credentials and tool configurations
       - coding-config:/data/coding-config
 
 volumes:
+  podman-containers:
   devbox-data:
   coding-config:

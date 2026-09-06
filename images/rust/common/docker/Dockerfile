@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/common:latest
+ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/podman:latest
 FROM ${BASE_IMAGE}
 ARG TARGETARCH
 

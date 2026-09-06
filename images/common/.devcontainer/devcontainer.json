@@ -13,8 +13,7 @@
     "seccomp=unconfined"
   ],
   "containerEnv": {
-    "ROOT_PASSWORD": "root",
-    "MISE_YES": "1"
+    "ROOT_PASSWORD": "root"
   },
   "mounts": [
     "source=devbox-data,target=/data/devbox,type=volume",

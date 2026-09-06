@@ -43,8 +43,11 @@ case "$TARGET" in
     common)
         build_image "common" "images/common/docker/Dockerfile" "images/common" ""
         ;;
+    podman)
+        build_image "podman" "images/podman/docker/Dockerfile" "images/podman" "${REPO_PREFIX}/common:latest"
+        ;;
     rust-common)
-        build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/common:latest"
+        build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/podman:latest"
         ;;
     npins-common)
         build_image "npins-common" "images/npins/common/docker/Dockerfile" "images/npins/common" "${REPO_PREFIX}/common:latest"
@@ -62,11 +65,14 @@ case "$TARGET" in
         echo "==> Stage 0: Building common base image..."
         build_image "common" "images/common/docker/Dockerfile" "images/common" ""
 
-        echo "==> Stage 1: Building rust-common & npins-common..."
-        build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/common:latest"
+        echo "==> Stage 1: Building podman & npins-common..."
+        build_image "podman" "images/podman/docker/Dockerfile" "images/podman" "${REPO_PREFIX}/common:latest"
         build_image "npins-common" "images/npins/common/docker/Dockerfile" "images/npins/common" "${REPO_PREFIX}/common:latest"
 
-        echo "==> Stage 2: Building rust-wasm, rust-cross & npins-rust..."
+        echo "==> Stage 2: Building rust-common (based on podman)..."
+        build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/podman:latest"
+
+        echo "==> Stage 3: Building rust-wasm, rust-cross & npins-rust..."
         build_image "rust-wasm" "images/rust/wasm/docker/Dockerfile" "images/rust/wasm" "${REPO_PREFIX}/rust-common:latest"
         build_image "rust-cross" "images/rust/cross/docker/Dockerfile" "images/rust/cross" "${REPO_PREFIX}/rust-common:latest"
         build_image "npins-rust" "images/npins/rust/docker/Dockerfile" "images/npins/rust" "${REPO_PREFIX}/rust-common:latest"

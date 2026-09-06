@@ -6,8 +6,7 @@ WORKDIR /workspace
 
 # Install npins dependency pin tool via nix-env on top of common
 RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    echo "sandbox = false" >> /etc/nix/nix.conf && \
-    nix-env --option sandbox false -iA \
+    nix-env -iA \
         nixpkgs.npins
 
 # Default command passed to entrypoint (inherited from common base)
