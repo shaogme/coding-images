@@ -31,7 +31,9 @@ yarn = {
 }
 
 # 实用工具
-direnv = "latest"
+"aqua:jetify-com/devbox" = {
+    version = "latest",
+}
 jq = "latest"
 ripgrep = "latest"
 gh = "latest"

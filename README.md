@@ -40,10 +40,10 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - **多架构原生构建**：通过 GitHub Actions 分别在 x86_64（`ubuntu-latest`）和 ARM64（`ubuntu-24.04-arm`）运行器上原生编译打包，避免 QEMU 模拟器的性能开销，生成统一的 Multi-Arch 镜像清单。
 - **声明式与模块化环境管理**：底层借助 NixOS 基础镜像提供干净可靠的系统级依赖，用户空间通过 `mise` 的系统与全局模块化配置（`/etc/mise/conf.d/`）按层级独立注入 Node.js、Python、Rust、WebAssembly 及各类 CLI 工具。
 - **自适应 UID/GID 权限映射**：底层完全承接 NixOS 的自适应 UID/GID 权限映射机制（支持 `HOST_UID:HOST_GID` 环境变量或启动时自动探测挂载的 `/workspace` 工作区属主），使用 `su-exec` 切换至匹配的本地普通用户（默认 `dev`），彻底解决宿主机代码与容器构建产物的权限冲突问题。
-- **全自动 direnv 深度集成**：内置 `direnv` 及其 shell hook，配合预置系统级配置（`/etc/direnv/direnvrc`）、白名单（`/workspace`）与统一数据持久化（`/data/direnv`），容器启动或切换目录时自动加载 `.envrc` / 环境变量，完全免除授权弹窗。
+- **全自动 Devbox 深度集成**：内置 `devbox` 及其 shell 集成，配合预置系统级配置、统一数据持久化（`/data/devbox`）与自适应权限映射，容器启动或切换目录时自动探测、初始化（支持 `DEVBOX_AUTO_INIT`）与加载 `devbox.json` 环境，开箱即用。
 - **内置 AI 编程套件与统一存储**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），并通过统一数据卷与全局目录映射（`coding-config:/data/coding-config`）自动软链接汇聚 `~/.claude`、`~/.codex`、`~/.gemini` 与 `~/.config/opencode`，实现高内聚的一键凭证备份、迁移与跨镜像共享。
 - **标准化 Dev Containers 规范支持**：全量在各层级镜像中预置标准化 `.devcontainer/devcontainer.json` 配置，将安全能力（`cap_add`、`seccomp`）、环境变量及持久化挂载声明为通用工业标准，开箱即用无缝支持 VS Code、Cursor、Zed 等现代容器化 IDE。
-- **统一自适应 Entrypoint**：统一的入口引导脚本，自适应支持普通用户（`dev`）与 root 运行模式，不仅自动探测工作区内 9 种层级的 mise 配置文件，还自动初始化与加载 direnv 环境，自动建立 AI 配置软链接，子镜像零维护。
+- **统一自适应 Entrypoint**：统一的入口引导脚本，自适应支持普通用户（`dev`）与 root 运行模式，不仅自动探测工作区内 9 种层级的 mise 配置文件，还自动初始化与加载 devbox 环境，自动建立 AI 配置软链接，子镜像零维护。
 - **完备的构建缓存优化**：Dockerfile 深度集成 BuildKit 缓存挂载（针对 Nix 缓存、mise 工具缓存、Cargo 依赖缓存等），显著加快构建与更新速度。
 
 ---
@@ -59,7 +59,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 flowchart TD
     Upstream["上游底座: ghcr.io/shaogme/nixos-dockers/mise:latest<br/>(NixOS + mise 基础系统)"]
     
-    Common["【层级 0】common<br/>• bubblewrap<br/>• Python + AI 编码工具套件<br/>• 通用 CLI (direnv, jq, ripgrep, gh)<br/>• 统一智能 entrypoint.sh"]
+    Common["【层级 0】common<br/>• bubblewrap<br/>• Python + AI 编码工具套件<br/>• 通用 CLI (devbox, jq, ripgrep, gh)<br/>• 统一智能 entrypoint.sh"]
     
     RustCommon["【层级 1】rust-common<br/>• Node.js / pnpm / yarn<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / cargo-binstall<br/>• sccache / cargo-sweep"]
     
@@ -98,8 +98,8 @@ flowchart TD
 - **系统包（Nix）**：`bubblewrap`（沙箱隔离支持）
 - **开发语言与运行时（mise）**：Python `latest`
 - **AI 辅助工具**：`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`
-- **通用工具**：`direnv`、`jq`、`ripgrep`、`gh`（GitHub CLI）
-- **核心组件**：统一智能入口脚本 `/usr/local/bin/mise-entrypoint.sh`、`/etc/direnv/direnvrc` 系统级联动扩展与 direnv 白名单配置
+- **通用与环境工具**：`devbox`、`jq`、`ripgrep`、`gh`（GitHub CLI）
+- **核心组件**：统一智能入口脚本 `/usr/local/bin/mise-entrypoint.sh`、Devbox 自动初始化与加载环境支持
 
 ### 2. npins-common (Nix/npins 通用环境)
 
@@ -225,37 +225,38 @@ flowchart TD
     TrustInstall --> ExportMise["执行 eval $(mise env -s bash)<br/>导出 mise 环境变量"]
     UseGlobal --> ExportMise
 
-    ExportMise --> DetectDirenv{"检测工作区 direnv 配置<br/>(.envrc / .envrc.*)?"}
-    DetectDirenv -- "是" --> LoadDirenv["执行 direnv allow 并运行<br/>eval $(direnv export bash)"]
-    DetectDirenv -- "否" --> ExecBase
-    LoadDirenv --> ExecBase(["转交控制权至基础底座 /bin/entrypoint.sh<br/>(执行自适应 UID/GID 映射并使用 su-exec 切换权限)"])
+    ExportMise --> DetectDevbox{"检测/初始化 Devbox 配置<br/>(devbox.json 或 DEVBOX_AUTO_INIT)?"}
+    DetectDevbox -- "是" --> LoadDevbox["执行 devbox install 并运行<br/>eval $(devbox shellenv --init-hook)"]
+    DetectDevbox -- "否" --> ExecBase
+    LoadDevbox --> ExecBase(["转交控制权至基础底座 /bin/entrypoint.sh<br/>(执行自适应 UID/GID 映射并使用 su-exec 切换权限)"])
 ```
 
-### Direnv 深度自动加载机制
+### Devbox 深度自动加载机制
 
-1. **零阻断白名单安全机制**：
-   镜像默认在系统全局 `/etc/direnv/direnv.toml` 中将 `/workspace` 添加至 `whitelist.prefix`，开发者在宿主机挂载代码或新建 `.envrc` 时无需手动执行 `direnv allow`，开箱即用。
-2. **Direnv 与 Mise 双向原生联动**：
-   镜像内置系统级配置 `/etc/direnv/direnvrc` 包含 `mise direnv activate` 扩展并链式加载用户自定义配置，开发者可在 `.envrc` 中直接写入 `use mise` 享受按需环境切换。
-3. **交互与非交互双模态环境变量导出**：
-   - **交互式会话**（SSH、`docker exec`、VS Code 终端）：通过系统级 `/etc/bash.bashrc` 中的全局钩子实现 `cd` 目录时自动热切换环境变量。
-   - **非交互式/守护进程**（容器启动、后台命令）：Entrypoint 启动时主动通过 `direnv export bash` 将 `.envrc` 环境变量注入至主进程上下文。
+1. **自动初始化与安装支持**：
+   - 若工作区存在 `devbox.json`，Entrypoint 启动时自动执行 `devbox install` 安装所需依赖包。
+   - 若配置了环境变量 `DEVBOX_AUTO_INIT=1`（或 `true`），当工作区缺少 `devbox.json` 时会自动执行 `devbox init` 生成模板并初始化项目。
+2. **全自动环境加载与导出**：
+   - **非交互式/守护进程/启动入口**：Entrypoint 通过 `devbox shellenv --init-hook` 直接将 Devbox 环境注入主进程上下文中，所有子进程透明继承。
+   - **交互式会话**（SSH、`docker exec`、VS Code 终端）：通过系统级 `/etc/bash.bashrc` 全局激活全局 devbox 环境，并在进入项目目录时通过 Shell 钩子自动热切换与加载 Devbox 环境变量。
+3. **数据持久化与权限隔离**：
+   Devbox 全局数据与软件包统一持久化到 `/data/devbox`（由 `devbox-data` 卷挂载），并在启动阶段自适应修正属主权限，确保非 root 用户无权限问题。
 
 ### 容器开发模式与配置持久化
 
-各镜像深度整合主流 AI 编程助手（Claude Code、OpenAI Codex、OpenCode、Antigravity CLI）与 direnv 数据持久化。
+各镜像深度整合主流 AI 编程助手（Claude Code、OpenAI Codex、OpenCode、Antigravity CLI）与 devbox 数据持久化。
 
 #### 统一 AI 凭证与存储映射策略
 
 为了避免在 Compose 或容器运行参数中分别声明 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.config/opencode` 等多个分散的命名卷，Coding Images 实施统一的高内聚存储映射策略：
 
-1. **全局统一存储卷**：所有 AI 编程工具的会话状态、认证 Token 与配置文件全部汇聚持久化到单一命名数据卷 `coding-config:/data/coding-config`，direnv 数据与授权状态统一持久化至 `direnv-data:/data/direnv`。
+1. **全局统一存储卷**：所有 AI 编程工具的会话状态、认证 Token 与配置文件全部汇聚持久化到单一命名数据卷 `coding-config:/data/coding-config`，devbox 数据与状态统一持久化至 `devbox-data:/data/devbox`。
 2. **启动自适应软链接**：容器启动时，入口脚本 `mise-entrypoint.sh` 自动在当前工作用户的主目录下创建指向 `/data/coding-config` 子目录的软链接：
    - `${USER_HOME}/.claude` -> `/data/coding-config/claude`
    - `${USER_HOME}/.codex` -> `/data/coding-config/codex`
    - `${USER_HOME}/.gemini` -> `/data/coding-config/gemini`
    - `${USER_HOME}/.config/opencode` -> `/data/coding-config/opencode`
-3. **备份与共享内聚**：开发者只需挂载或备份统一的数据卷（`coding-config`、`direnv-data`），即可完成环境状态保留与跨容器共享。direnv 数据路径通过全局环境变量 `XDG_DATA_HOME=/data` 直接读写 `/data/direnv`，完全独立于用户家目录且无需软链接。
+3. **备份与共享内聚**：开发者只需挂载或备份统一的数据卷（`coding-config`、`devbox-data`），即可完成环境状态保留与跨容器共享。devbox 数据路径通过全局环境变量 `XDG_DATA_HOME=/data` 直接读写 `/data/devbox`，完全独立于用户家目录且无需软链接。
 
 ```mermaid
 flowchart LR
@@ -264,14 +265,14 @@ flowchart LR
     end
 
     subgraph Volumes["持久化 Docker 卷"]
-        V0[("direnv-data")]
+        V0[("devbox-data")]
         VAI[("coding-config<br/>(统一 AI 数据卷)")]
         VRust[("rust-target / cargo-*")]
     end
 
     subgraph DevContainer["开发容器 (dev / root 模式)"]
         WS["/workspace"]
-        DataDirenv["/data/direnv<br/>(direnv 数据与授权)"]
+        DataDevbox["/data/devbox<br/>(devbox 数据与状态)"]
         Data["/data/coding-config"]
         P1["~/.claude"]
         P2["~/.codex"]
@@ -280,7 +281,7 @@ flowchart LR
     end
 
     Code -->|目录挂载| WS
-    V0 <-->|卷持久化| DataDirenv
+    V0 <-->|卷持久化| DataDevbox
     VAI <-->|统一卷持久化| Data
     Data -.->|自适应软链接| P1
     Data -.->|自适应软链接| P2
@@ -357,8 +358,8 @@ services:
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
       # 持久化 sccache 编译缓存
       - sccache-cache:/data/sccache
-      # 持久化 direnv 数据
-      - direnv-data:/data/direnv
+      # 持久化 devbox 数据
+      - devbox-data:/data/devbox
       # 统一持久化所有 AI 工具配置与会话状态
       - coding-config:/data/coding-config
 
@@ -367,7 +368,7 @@ volumes:
   cargo-registry:
   cargo-git:
   sccache-cache:
-  direnv-data:
+  devbox-data:
   coding-config:
 ```
 
@@ -412,7 +413,7 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
     "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
     "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
-    "source=direnv-data,target=/data/direnv,type=volume",
+    "source=devbox-data,target=/data/devbox,type=volume",
     "source=coding-config,target=/data/coding-config,type=volume"
   ],
   "customizations": {
@@ -526,12 +527,12 @@ flowchart TD
 ├── images/
 │   ├── common/
 │   │   ├── .config/
-│   │   │   └── mise.toml            # common 基础与 direnv 工具 (10-common.toml)
+│   │   │   └── mise.toml            # common 基础与 devbox 工具 (10-common.toml)
 │   │   ├── .devcontainer/
 │   │   │   └── devcontainer.json    # common Dev Container 配置
 │   │   ├── docker/
 │   │   │   ├── Dockerfile           # common 构建规则 (FROM nixos-dockers/mise)
-│   │   │   └── entrypoint.sh        # 全局统一智能引导脚本 (Mise, Direnv & AI 凭证软链接)
+│   │   │   └── entrypoint.sh        # 全局统一智能引导脚本 (Mise, Devbox & AI 凭证软链接)
 │   │   └── docker-compose.yml
 │   ├── npins/
 │   │   ├── common/

@@ -65,16 +65,17 @@ export PATH="$USER_PATHS:$PATH"
 # Unified AI Credentials & Tool Config Setup
 # ==========================================
 CODING_CONFIG_DIR="${CODING_CONFIG_DIR:-/data/coding-config}"
-DIRENV_DATA_DIR="${DIRENV_DATA_DIR:-/data/direnv}"
+DEVBOX_DATA_DIR="${DEVBOX_DATA_DIR:-/data/devbox}"
 CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/data/.cargo/target}"
 mkdir -p "$CODING_CONFIG_DIR/claude" \
          "$CODING_CONFIG_DIR/codex" \
          "$CODING_CONFIG_DIR/gemini" \
-         "$CODING_CONFIG_DIR/opencode"
+         "$CODING_CONFIG_DIR/opencode" \
+         "$DEVBOX_DATA_DIR"
 
 if [ "$TARGET_UID" -ne 0 ]; then
     chown -R "$TARGET_UID:$TARGET_GID" \
-        "$CODING_CONFIG_DIR" "$DIRENV_DATA_DIR" /etc/mise /data/.cargo 2>/dev/null || true
+        "$CODING_CONFIG_DIR" "$DEVBOX_DATA_DIR" /etc/mise /data/.cargo 2>/dev/null || true
 fi
 
 # Helper function to create symlinks from home directories to unified storage
@@ -216,14 +217,6 @@ if [ -n "$FOUND_PATH" ]; then
     CONFIG_FOUND=1
 fi
 
-# Append custom workspace to direnv whitelist if not default /workspace
-if [ "$WORKSPACE" != "/workspace" ] && [ -f /etc/direnv/direnv.toml ]; then
-    if ! grep -q "\"$WORKSPACE\"" /etc/direnv/direnv.toml 2>/dev/null; then
-        printf '[whitelist]\nprefix = [ "/workspace", "%s" ]\n' \
-            "$WORKSPACE" > /etc/direnv/direnv.toml 2>/dev/null || true
-    fi
-fi
-
 if [ $CONFIG_FOUND -eq 1 ]; then
     echo "[mise-entrypoint] Found workspace mise config ($FOUND_PATH)." \
          "Initializing environment..."
@@ -239,19 +232,40 @@ fi
 # Load mise environment variables into current shell so child processes inherit them
 eval "$(mise env -s bash 2>/dev/null || true)"
 
-# Workspace direnv auto-loading: detect .envrc and export environment
-DIRENV_CONFIG_FOUND=0
-if [ -f ".envrc" ] || [ -f ".envrc.local" ] || compgen -G ".envrc.*" > /dev/null 2>&1; then
-    DIRENV_CONFIG_FOUND=1
-fi
+# ==========================================
+# Devbox Workspace Auto-Init & Auto-Loading
+# ==========================================
+if command -v devbox >/dev/null 2>&1 || mise which devbox >/dev/null 2>&1; then
+    # Load global devbox environment if global configuration exists
+    if [ -f "$DEVBOX_DATA_DIR/global/default/devbox.json" ]; then
+        eval "$(devbox global shellenv --init-hook 2>/dev/null || true)"
+    fi
 
-if [ $DIRENV_CONFIG_FOUND -eq 1 ] && \
-   (command -v direnv >/dev/null 2>&1 || mise which direnv >/dev/null 2>&1); then
-    echo "[mise-entrypoint] Found workspace direnv configuration (.envrc)." \
-         "Initializing direnv..."
-    direnv allow "$WORKSPACE" 2>/dev/null || direnv allow . 2>/dev/null || true
-    eval "$(direnv export bash 2>/dev/null || true)"
-    echo "[mise-entrypoint] Direnv environment loaded."
+    DEVBOX_CONFIG_FOUND=0
+    if [ -f "devbox.json" ]; then
+        DEVBOX_CONFIG_FOUND=1
+    elif [ "${DEVBOX_AUTO_INIT:-0}" = "1" ] || [ "${DEVBOX_AUTO_INIT,,}" = "true" ]; then
+        echo "[mise-entrypoint] DEVBOX_AUTO_INIT is enabled. Initializing devbox project in $WORKSPACE..."
+        devbox init || true
+        if [ -f "devbox.json" ]; then
+            DEVBOX_CONFIG_FOUND=1
+            if [ "$TARGET_UID" -ne 0 ]; then
+                chown "$TARGET_UID:$TARGET_GID" devbox.json 2>/dev/null || true
+            fi
+        fi
+    fi
+
+    if [ $DEVBOX_CONFIG_FOUND -eq 1 ]; then
+        echo "[mise-entrypoint] Found workspace devbox configuration (devbox.json)." \
+             "Initializing devbox environment..."
+        echo "[mise-entrypoint] Installing tools via devbox..."
+        devbox install || true
+        eval "$(devbox shellenv --init-hook 2>/dev/null || true)"
+        if [ "$TARGET_UID" -ne 0 ] && [ -d ".devbox" ]; then
+            chown -R "$TARGET_UID:$TARGET_GID" .devbox 2>/dev/null || true
+        fi
+        echo "[mise-entrypoint] Devbox environment loaded."
+    fi
 fi
 
 # ==========================================
@@ -316,7 +330,7 @@ else
     fi
 fi
 
-echo "[mise-entrypoint] Mise & Direnv environment ready."
+echo "[mise-entrypoint] Mise & Devbox environment ready."
 
 # Hand over execution to the base NixOS container entrypoint
 exec /bin/entrypoint.sh "$@"
