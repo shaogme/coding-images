@@ -1,29 +1,29 @@
-services:
-  # Base configuration for the application
-  app-base: &app-base
-    image: ghcr.io/shaogme/coding-images/rust-common:latest
-    environment:
-      - ROOT_PASSWORD=root # Set your secure password here
-      - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
-      - HOST_UID=${HOST_UID:-1000:1000} # Adaptive UID/GID mapping to avoid file permission conflicts
-      - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
-      - CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-0} # Disabled by default for sccache caching compatibility
-      - CARGO_TARGET_DIR=/data/.cargo/target # Isolate Rust target directory to persistent data volume
-      - RUSTC_WRAPPER=${RUSTC_WRAPPER:-sccache} # Enable sccache compiler wrapper by default
-      - SCCACHE_DIR=/data/sccache # Directory for sccache compiler cache storage
-      - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0} # Set to 1 to explicitly disable sccache (also supports ENABLE_SCCACHE=0)
-    security_opt:
-      - seccomp:unconfined # Required for inner container execution and trace
-      - label:disable # Disable SELinux labeling separation for containers
-    cap_add:
-      - SYS_ADMIN
-      - SYS_PTRACE
-      - NET_ADMIN
-    devices:
-      - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
-      - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
-    tty: true
+# Base configuration for the application
+x-app-base: &app-base
+  image: ghcr.io/shaogme/coding-images/rust-common:latest
+  environment:
+    - ROOT_PASSWORD=root # Set your secure password here
+    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
+    - HOST_UID=${HOST_UID:-1000:1000} # Adaptive UID/GID mapping to avoid file permission conflicts
+    - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
+    - CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-0} # Disabled by default for sccache caching compatibility
+    - CARGO_TARGET_DIR=/data/.cargo/target # Isolate Rust target directory to persistent data volume
+    - RUSTC_WRAPPER=${RUSTC_WRAPPER:-sccache} # Enable sccache compiler wrapper by default
+    - SCCACHE_DIR=/data/sccache # Directory for sccache compiler cache storage
+    - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0} # Set to 1 to explicitly disable sccache (also supports ENABLE_SCCACHE=0)
+  security_opt:
+    - seccomp:unconfined # Required for inner container execution and trace
+    - label:disable # Disable SELinux labeling separation for containers
+  cap_add:
+    - SYS_ADMIN
+    - SYS_PTRACE
+    - NET_ADMIN
+  devices:
+    - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
+    - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
+  tty: true
 
+services:
   # Develop mode: Mounts local directory for hot-reloading (Default)
   dev:
     <<: *app-base

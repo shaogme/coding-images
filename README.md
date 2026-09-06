@@ -346,30 +346,31 @@ docker run -it --rm \
 以 `images/rust/common` 为例，标准的 `docker-compose.yml` 编排配置如下：
 
 ```yaml
-services:
-  app-base: &app-base
-    image: ghcr.io/shaogme/coding-images/rust-common:latest
-    environment:
-      - ROOT_PASSWORD=root
-      - HOST_UID=${HOST_UID:-1000:1000} # 自适应宿主机 UID/GID
-      - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
-      - CARGO_INCREMENTAL=0 # sccache 需关闭增量编译以生效缓存
-      - CARGO_TARGET_DIR=/data/.cargo/target
-      - RUSTC_WRAPPER=sccache
-      - SCCACHE_DIR=/data/sccache
-      - SCCACHE_DISABLE=0 # 设为 1 或设置 ENABLE_SCCACHE=0 可显式关闭 sccache
-    security_opt:
-      - seccomp:unconfined
-      - label:disable
-    cap_add:
-      - SYS_ADMIN
-      - SYS_PTRACE
-      - NET_ADMIN
-    devices:
-      - /dev/fuse:/dev/fuse
-      - /dev/net/tun:/dev/net/tun
-    tty: true
+# Base configuration for the application
+x-app-base: &app-base
+  image: ghcr.io/shaogme/coding-images/rust-common:latest
+  environment:
+    - ROOT_PASSWORD=root
+    - HOST_UID=${HOST_UID:-1000:1000} # 自适应宿主机 UID/GID
+    - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
+    - CARGO_INCREMENTAL=0 # sccache 需关闭增量编译以生效缓存
+    - CARGO_TARGET_DIR=/data/.cargo/target
+    - RUSTC_WRAPPER=sccache
+    - SCCACHE_DIR=/data/sccache
+    - SCCACHE_DISABLE=0 # 设为 1 或设置 ENABLE_SCCACHE=0 可显式关闭 sccache
+  security_opt:
+    - seccomp:unconfined
+    - label:disable
+  cap_add:
+    - SYS_ADMIN
+    - SYS_PTRACE
+    - NET_ADMIN
+  devices:
+    - /dev/fuse:/dev/fuse
+    - /dev/net/tun:/dev/net/tun
+  tty: true
 
+services:
   dev:
     <<: *app-base
     container_name: rust-common-dev

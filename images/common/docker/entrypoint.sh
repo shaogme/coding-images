@@ -259,7 +259,7 @@ if command -v devbox >/dev/null 2>&1 || mise which devbox >/dev/null 2>&1; then
         devbox init || true
         if [ -f "devbox.json" ]; then
             DEVBOX_CONFIG_FOUND=1
-            if [ "$TARGET_UID" -ne 0 ]; then
+            if [ "$TARGET_UID" -ne 0 ] && [ "${CHOWN_WORKSPACE:-0}" = "1" ]; then
                 chown "$TARGET_UID:$TARGET_GID" devbox.json 2>/dev/null || true
             fi
         fi
@@ -276,7 +276,7 @@ if command -v devbox >/dev/null 2>&1 || mise which devbox >/dev/null 2>&1; then
         if [ -n "$DEVBOX_WORKSPACE_ENV" ]; then
             eval "$DEVBOX_WORKSPACE_ENV" 2>/dev/null || true
         fi
-        if [ "$TARGET_UID" -ne 0 ] && [ -d ".devbox" ]; then
+        if [ "$TARGET_UID" -ne 0 ] && [ -d ".devbox" ] && [ "${CHOWN_WORKSPACE:-0}" = "1" ]; then
             chown -R "$TARGET_UID:$TARGET_GID" .devbox 2>/dev/null || true
         fi
         echo "[mise-entrypoint] Devbox environment loaded."
