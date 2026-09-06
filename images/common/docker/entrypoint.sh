@@ -238,7 +238,17 @@ eval "$(mise env -s bash 2>/dev/null || true)"
 if command -v devbox >/dev/null 2>&1 || mise which devbox >/dev/null 2>&1; then
     # Load global devbox environment if global configuration exists
     if [ -f "$DEVBOX_DATA_DIR/global/default/devbox.json" ]; then
-        eval "$(devbox global shellenv --init-hook 2>/dev/null || true)"
+        # Ensure hook script exists so devbox shellenv --init-hook does not fail on missing file
+        mkdir -p "$DEVBOX_DATA_DIR/global/default/.devbox/gen/scripts" 2>/dev/null || true
+        [ -f "$DEVBOX_DATA_DIR/global/default/.devbox/gen/scripts/.hooks.sh" ] || \
+            touch "$DEVBOX_DATA_DIR/global/default/.devbox/gen/scripts/.hooks.sh" 2>/dev/null || true
+        if [ "$TARGET_UID" -ne 0 ]; then
+            chown -R "$TARGET_UID:$TARGET_GID" "$DEVBOX_DATA_DIR/global/default/.devbox" 2>/dev/null || true
+        fi
+        DEVBOX_GLOBAL_ENV="$(devbox global shellenv --init-hook 2>/dev/null || devbox global shellenv 2>/dev/null || true)"
+        if [ -n "$DEVBOX_GLOBAL_ENV" ]; then
+            eval "$DEVBOX_GLOBAL_ENV" 2>/dev/null || true
+        fi
     fi
 
     DEVBOX_CONFIG_FOUND=0
@@ -260,7 +270,12 @@ if command -v devbox >/dev/null 2>&1 || mise which devbox >/dev/null 2>&1; then
              "Initializing devbox environment..."
         echo "[mise-entrypoint] Installing tools via devbox..."
         devbox install || true
-        eval "$(devbox shellenv --init-hook 2>/dev/null || true)"
+        mkdir -p .devbox/gen/scripts 2>/dev/null || true
+        [ -f .devbox/gen/scripts/.hooks.sh ] || touch .devbox/gen/scripts/.hooks.sh 2>/dev/null || true
+        DEVBOX_WORKSPACE_ENV="$(devbox shellenv --init-hook 2>/dev/null || devbox shellenv 2>/dev/null || true)"
+        if [ -n "$DEVBOX_WORKSPACE_ENV" ]; then
+            eval "$DEVBOX_WORKSPACE_ENV" 2>/dev/null || true
+        fi
         if [ "$TARGET_UID" -ne 0 ] && [ -d ".devbox" ]; then
             chown -R "$TARGET_UID:$TARGET_GID" .devbox 2>/dev/null || true
         fi

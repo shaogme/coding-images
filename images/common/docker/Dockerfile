@@ -29,13 +29,21 @@ RUN { \
         echo 'if [[ $- == *i* ]]; then'; \
         echo '  type -P mise &>/dev/null && eval "$(mise activate bash 2>/dev/null || true)"'; \
         echo '  if type -P devbox &>/dev/null; then'; \
-        echo '    eval "$(devbox global shellenv --init-hook 2>/dev/null || true)"'; \
+        echo '    _devbox_global="${DEVBOX_DATA_DIR:-/data/devbox}/global/default"'; \
+        echo '    if [ -f "$_devbox_global/devbox.json" ]; then'; \
+        echo '      mkdir -p "$_devbox_global/.devbox/gen/scripts" 2>/dev/null || true'; \
+        echo '      [ -f "$_devbox_global/.devbox/gen/scripts/.hooks.sh" ] || touch "$_devbox_global/.devbox/gen/scripts/.hooks.sh" 2>/dev/null || true'; \
+        echo '      eval "$(devbox global shellenv --init-hook 2>/dev/null || true)" 2>/dev/null || true'; \
+        echo '    fi'; \
+        echo '    unset _devbox_global'; \
         echo '    __devbox_hook() {'; \
         echo '      local dir="$PWD"'; \
         echo '      if [ "$dir" != "${__devbox_last_dir:-}" ]; then'; \
         echo '        __devbox_last_dir="$dir"'; \
         echo '        if [ -f "$dir/devbox.json" ] && [ "${DEVBOX_PROJECT_ROOT:-}" != "$dir" ]; then'; \
-        echo '          eval "$(devbox shellenv --init-hook 2>/dev/null || true)"'; \
+        echo '          mkdir -p "$dir/.devbox/gen/scripts" 2>/dev/null || true'; \
+        echo '          [ -f "$dir/.devbox/gen/scripts/.hooks.sh" ] || touch "$dir/.devbox/gen/scripts/.hooks.sh" 2>/dev/null || true'; \
+        echo '          eval "$(devbox shellenv --init-hook 2>/dev/null || true)" 2>/dev/null || true'; \
         echo '        fi'; \
         echo '      fi'; \
         echo '    }'; \
