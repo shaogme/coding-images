@@ -260,7 +260,7 @@ flowchart TD
    - 若配置了环境变量 `DEVBOX_AUTO_INIT=1`（或 `true`），当工作区缺少 `devbox.json` 时会自动执行 `devbox init` 生成模板并初始化项目。
 2. **全自动环境加载与导出**：
    - **非交互式/守护进程/启动入口**：Entrypoint 通过 `devbox shellenv --init-hook` 直接将 Devbox 环境注入主进程上下文中，所有子进程透明继承。
-   - **交互式会话**（SSH、`docker exec`、VS Code 终端）：通过系统级 `/etc/bash.bashrc` 全局激活全局 devbox 环境，并在进入项目目录时通过 Shell 钩子自动热切换与加载 Devbox 环境变量。
+   - **交互式会话**（SSH、`docker exec`、VS Code 终端）：通过系统级 `/etc/bashrc` 全局激活全局 devbox 环境，并在进入项目目录时通过 Shell 钩子自动热切换与加载 Devbox 环境变量。
 3. **数据持久化与权限隔离**：
    Devbox 全局数据与软件包统一持久化到 `/data/devbox`（由 `devbox-data` 卷挂载），并在启动阶段自适应修正属主权限，确保非 root 用户无权限问题。
 

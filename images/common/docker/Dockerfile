@@ -23,7 +23,7 @@ RUN echo "sandbox = false" >> /etc/nix/nix.conf && \
     nix-env -iA \
         nixpkgs.bubblewrap
 
-# Configure global interactive shell hooks for mise and devbox
+# Configure global interactive shell hooks for mise and devbox into /etc/bashrc
 RUN { \
         echo '# Global interactive shell hooks for mise and devbox'; \
         echo 'if [[ $- == *i* ]]; then'; \
@@ -44,7 +44,7 @@ RUN { \
         echo '    fi'; \
         echo '  fi'; \
         echo 'fi'; \
-    } >> /etc/bash.bashrc
+    } >> /etc/bashrc
 
 # Copy global mise base configuration into conf.d
 RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise
