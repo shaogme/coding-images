@@ -610,7 +610,5 @@ flowchart TD
 ├── scripts/
 │   ├── discover_images.py           # 扫描 images 目录并生成分阶段矩阵的脚本
 │   └── build_local.sh               # 本地按依赖拓扑一键构建脚本
-├── DIRENV_REFACTORING_PROPOSAL.md   # Direnv 自动加载重构与集成设计规范文档
-├── IMAGE_REFACTORING_PROPOSAL.md    # 镜像重构方案设计规范文档
 └── README.md                        # 项目主文档
 ```
