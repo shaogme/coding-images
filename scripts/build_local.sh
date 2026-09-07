@@ -49,6 +49,9 @@ case "$TARGET" in
     rust-common)
         build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/podman:latest"
         ;;
+    qemu-common)
+        build_image "qemu-common" "images/qemu/common/docker/Dockerfile" "images/qemu/common" "${REPO_PREFIX}/podman:latest"
+        ;;
     npins-common)
         build_image "npins-common" "images/npins/common/docker/Dockerfile" "images/npins/common" "${REPO_PREFIX}/common:latest"
         ;;
@@ -69,8 +72,9 @@ case "$TARGET" in
         build_image "podman" "images/podman/docker/Dockerfile" "images/podman" "${REPO_PREFIX}/common:latest"
         build_image "npins-common" "images/npins/common/docker/Dockerfile" "images/npins/common" "${REPO_PREFIX}/common:latest"
 
-        echo "==> Stage 2: Building rust-common (based on podman)..."
+        echo "==> Stage 2: Building rust-common & qemu-common (based on podman)..."
         build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/podman:latest"
+        build_image "qemu-common" "images/qemu/common/docker/Dockerfile" "images/qemu/common" "${REPO_PREFIX}/podman:latest"
 
         echo "==> Stage 3: Building rust-wasm, rust-cross & npins-rust..."
         build_image "rust-wasm" "images/rust/wasm/docker/Dockerfile" "images/rust/wasm" "${REPO_PREFIX}/rust-common:latest"

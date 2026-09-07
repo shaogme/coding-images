@@ -16,6 +16,7 @@ IMAGE_DEPENDENCY_GRAPH = {
     "npins-common": {"stage": 1, "parent": "common"},
     "podman": {"stage": 1, "parent": "common"},
     "rust-common": {"stage": 2, "parent": "podman"},
+    "qemu-common": {"stage": 2, "parent": "podman"},
     "npins-rust": {"stage": 3, "parent": "rust-common"},
     "rust-wasm": {"stage": 3, "parent": "rust-common"},
     "rust-cross": {"stage": 3, "parent": "rust-common"},

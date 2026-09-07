@@ -123,7 +123,7 @@ jobs:
     secrets: inherit
 
   # --------------------------------------------------------------------------
-  # 4. Stage 2: Layer 2 images based on podman (rust-common)
+  # 4. Stage 2: Layer 2 images based on podman (rust-common, qemu-common)
   # --------------------------------------------------------------------------
   build-stage-2:
     name: Stage 2

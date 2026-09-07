@@ -1,6 +1,6 @@
 # Coding Images
 
-Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `podman` / `npins-common` -> `rust-common` -> `rust-wasm` / `rust-cross` / `npins-rust`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
+Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `podman` / `npins-common` -> `rust-common` / `qemu-common` -> `rust-wasm` / `rust-cross` / `npins-rust`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
 
 ---
 
@@ -13,9 +13,10 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
   - [2. podman (Podman 容器引擎环境)](#2-podman-podman-容器引擎环境)
   - [3. npins-common (Nix/npins 通用环境)](#3-npins-common-nixnpins-通用环境)
   - [4. rust-common (Rust 核心开发环境)](#4-rust-common-rust-核心开发环境)
-  - [5. npins-rust (Nix/npins + Rust 环境)](#5-npins-rust-nixnpins--rust-环境)
-  - [6. rust-wasm (Rust WebAssembly 环境)](#6-rust-wasm-rust-webassembly-环境)
-  - [7. rust-cross (Rust 交叉编译与容器环境)](#7-rust-cross-rust-交叉编译与容器环境)
+  - [5. qemu-common (QEMU 虚拟机与配套设施环境)](#5-qemu-common-qemu-虚拟机与配套设施环境)
+  - [6. npins-rust (Nix/npins + Rust 环境)](#6-npins-rust-nixnpins--rust-环境)
+  - [7. rust-wasm (Rust WebAssembly 环境)](#7-rust-wasm-rust-webassembly-环境)
+  - [8. rust-cross (Rust 交叉编译与容器环境)](#8-rust-cross-rust-交叉编译与容器环境)
 - [镜像架构与设计机制](#镜像架构与设计机制)
   - [树状分层与 mise conf.d 模块化配置](#树状分层与-mise-confd-模块化配置)
   - [统一智能 Entrypoint 引导流程](#统一智能-entrypoint-引导流程)
@@ -67,6 +68,8 @@ flowchart TD
     NpinsCommon["【层级 1】npins-common<br/>• nixpkgs.npins"]
 
     RustCommon["【层级 2】rust-common<br/>• Node.js / pnpm / yarn<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / cargo-binstall<br/>• sccache / cargo-sweep<br/>• 内置 Podman 容器运行时"]
+
+    QemuCommon["【层级 2】qemu-common<br/>• QEMU (多架构系统模拟与虚拟化)<br/>• OVMF (UEFI 固件)<br/>• swtpm (软件 TPM 模拟器)<br/>• cloud-utils (cloud-localds 种子生成)<br/>• xorriso / mtools (ISO 与磁盘工具)<br/>• dnsmasq / bridge-utils / socat (虚拟网络)<br/>• /dev/kvm 硬件加速支持"]
     
     RustWasm["【层级 3】rust-wasm<br/>• wasm32 交叉编译 Target<br/>• wasm-pack / wasm-bindgen / wasmi<br/>• Headless Firefox / geckodriver"]
     
@@ -78,6 +81,7 @@ flowchart TD
     Common --> Podman
     Common --> NpinsCommon
     Podman --> RustCommon
+    Podman --> QemuCommon
     RustCommon --> NpinsRust
     RustCommon --> RustWasm
     RustCommon --> RustCross
@@ -89,7 +93,7 @@ flowchart TD
 
     class Common base;
     class Podman,NpinsCommon l1;
-    class RustCommon l2;
+    class RustCommon,QemuCommon l2;
     class NpinsRust,RustWasm,RustCross l3;
 ```
 
@@ -146,7 +150,26 @@ flowchart TD
   - **Nightly 工具链多架构别名桥接（Symlink Alias）**：
     通过 `mise` 声明式统一管理并锁定特定日期的 `nightly` 版本快照（保证构建确定性与缓存稳定性），在构建阶段自适应宿主架构（`x86_64` / `aarch64`）在 `$RUSTUP_HOME/toolchains` 中自动建立 `nightly-<triple>` 与 `nightly` 软链接别名，无缝兼容 `cargo +nightly`、`rustup target add` 与各类 IDE 插件的原生习惯。
 
-### 5. npins-rust (Nix/npins + Rust 环境)
+### 5. qemu-common (QEMU 虚拟机与配套设施环境)
+
+在 `podman` 镜像基础上深度扩展完整 QEMU 虚拟化与系统仿真环境，同时具备 Podman 容器引擎与免守护进程的虚拟机运行能力，支持 UEFI 引导、vTPM 2.0、Cloud-Init 快速部署与虚拟网桥。
+
+- **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-common:latest`
+- **基础镜像**：`ghcr.io/shaogme/coding-images/podman:latest`
+- **包含 podman 的所有环境**（具备开箱即用的 Podman 容器运行时与 Docker 透明伪装），并额外增加：
+  - **系统包（Nix）**：
+    - `qemu`：多架构系统模拟器（`qemu-system-x86_64`、`qemu-system-aarch64` 等）、虚拟磁盘管理（`qemu-img`）、网络块设备（`qemu-nbd`）
+    - `OVMF.fd`：UEFI 固件套件（自动软链接至 `/usr/share/OVMF/` 与 `/usr/share/qemu/`）
+    - `swtpm`：软件 TPM 模拟器，全面支持 Windows 11、Linux 安全启动及 TPM 2.0 认证
+    - `cloud-utils`：内置 `cloud-localds`，支持极速生成 cloud-init NoCloud 种子镜像
+    - `xorriso`、`mtools`：ISO 制作与免挂载读写 FAT/EFI 分区工具
+    - `dnsmasq`、`bridge-utils`、`socat`：虚拟网络桥接、DHCP/DNS 服务分配与 QMP 控制套接字中继
+  - **硬件加速与无缝权限映射**：
+    - 预建 `kvm` 用户组并自动将 `dev` 用户加入该组
+    - 智能入口脚本自动探测并赋予 `/dev/kvm`、`/dev/net/tun` 与 `/dev/fuse` 节点 `0666` 权限，彻底杜绝普通用户无法调用 KVM 硬件加速的问题
+  - **Docker Compose 支持**：提供 `devices: [/dev/kvm, /dev/net/tun, /dev/fuse]` 与 `qemu-data:/data/qemu` 独立持久化卷（用于持久化 VM 镜像与 cloud-init 配置文件）
+
+### 6. npins-rust (Nix/npins + Rust 环境)
 
 在 `rust-common` 基础上扩展 npins 工具。
 
@@ -154,7 +177,7 @@ flowchart TD
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
 - **包含 rust-common 的所有环境**，并额外增加系统包：`nixpkgs.npins`
 
-### 6. rust-wasm (Rust WebAssembly 环境)
+### 7. rust-wasm (Rust WebAssembly 环境)
 
 在 `rust-common` 基础上扩展 WebAssembly 交叉编译与 Headless 浏览器测试环境。
 
@@ -166,7 +189,7 @@ flowchart TD
   - **WebAssembly 工具链**：`wasm-pack`、`wasm-bindgen-cli`、`wasmi_cli`
   - **环境配置**：静默 Firefox 企业策略与 Headless 渲染配置
 
-### 7. rust-cross (Rust 交叉编译与容器环境)
+### 8. rust-cross (Rust 交叉编译与容器环境)
 
 在 `rust-common` 基础上扩展 Rust 交叉编译套件，直接复用底座由 `podman` 镜像赋予的容器引擎能力，原生支持在容器内免后台守护进程执行 `cross` 多架构交叉编译。
 
@@ -207,6 +230,13 @@ flowchart TB
             CargoTools["cargo-nextest / cargo-binstall"]
         end
 
+        subgraph QemuLayer["3. qemu-common 镜像层"]
+            NixQemu["Nix: qemu / OVMF / swtpm"]
+            CloudTools["cloud-utils (cloud-localds) / xorriso / mtools"]
+            NetTools["dnsmasq / bridge-utils / socat"]
+            KvmDev["/dev/kvm & /dev/net/tun 权限自适应"]
+        end
+
         subgraph WasmLayer["4. rust-wasm 镜像层 (30-wasm.toml)"]
             WasmTargets["Rust wasm32-unknown-unknown"]
             WasmTools["wasm-pack / wasm-bindgen / wasmi_cli"]
@@ -220,6 +250,7 @@ flowchart TB
         WasmLayer --> RustLayer
         CrossLayer --> RustLayer
         RustLayer --> PodmanLayer
+        QemuLayer --> PodmanLayer
         PodmanLayer --> CommonLayer
     end
 ```
@@ -526,13 +557,13 @@ flowchart TD
 
     Discover --> Stage0["阶段二: Stage 0 (Base)<br/>构建 common 多架构镜像并发布"]
     Stage0 --> Stage1["阶段三: Stage 1 (Layer 1)<br/>并行构建 podman 与 npins-common 并发布"]
-    Stage1 --> Stage2["阶段四: Stage 2 (Layer 2)<br/>构建基于 podman 的 rust-common 并发布"]
+    Stage1 --> Stage2["阶段四: Stage 2 (Layer 2)<br/>并行构建基于 podman 的 rust-common 与 qemu-common 并发布"]
     Stage2 --> Stage3["阶段五: Stage 3 (Layer 3)<br/>并行构建 rust-wasm、rust-cross 与 npins-rust 并发布"]
 ```
 
 1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建，合并推送 Multi-Arch Manifest。
 2. **Stage 1 (Layer 1)**：并行构建基于 `common` 的 `podman` 与 `npins-common`。
-3. **Stage 2 (Layer 2)**：构建基于 `podman` 的 `rust-common`。
+3. **Stage 2 (Layer 2)**：并行构建基于 `podman` 的 `rust-common` 与 `qemu-common`。
 4. **Stage 3 (Layer 3)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross` 与 `npins-rust`。
 
 ### 镜像标签管理策略
@@ -583,6 +614,14 @@ flowchart TD
 │   │   ├── docker/
 │   │   │   └── Dockerfile           # podman 构建规则 (FROM common)
 │   │   └── docker-compose.yml
+│   ├── qemu/
+│   │   └── common/
+│   │       ├── .devcontainer/
+│   │       │   └── devcontainer.json # qemu-common Dev Container 配置
+│   │       ├── docker/
+│   │       │   ├── Dockerfile       # qemu-common 构建规则 (FROM podman)
+│   │       │   └── entrypoint.sh    # QEMU /dev/kvm 设备节点权限与引导脚本
+│   │       └── docker-compose.yml
 │   └── rust/
 │       ├── common/
 │       │   ├── .config/
