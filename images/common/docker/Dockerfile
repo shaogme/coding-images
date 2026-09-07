@@ -19,8 +19,7 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
     PATH=/usr/local/share/mise/shims:$PATH
 
 # Install system-level binaries via nix-env into system default profile
-RUN echo "sandbox = false" >> /etc/nix/nix.conf && \
-    nix-env -iA \
+RUN nix-env -iA \
         nixpkgs.bubblewrap
 
 # Configure global interactive shell hooks for mise and devbox into /etc/bashrc
