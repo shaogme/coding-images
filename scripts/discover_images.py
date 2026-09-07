@@ -20,6 +20,8 @@ IMAGE_DEPENDENCY_GRAPH = {
     "npins-rust": {"stage": 3, "parent": "rust-common"},
     "rust-wasm": {"stage": 3, "parent": "rust-common"},
     "rust-cross": {"stage": 3, "parent": "rust-common"},
+    "qemu-rust-common": {"stage": 3, "parent": "qemu-common"},
+    "qemu-rust-cross": {"stage": 4, "parent": "qemu-rust-common"},
 }
 
 
@@ -116,9 +118,10 @@ def get_staged_matrices(images: list, is_single_target: bool):
             1: [],
             2: [],
             3: [],
+            4: [],
         }
 
-    stages = {0: [], 1: [], 2: [], 3: []}
+    stages = {0: [], 1: [], 2: [], 3: [], 4: []}
     for img in images:
         stage = img.get("stage", 0)
         if stage not in stages:
@@ -178,7 +181,7 @@ def main():
         with open(args.github_output, "a", encoding="utf-8") as f:
             f.write(f"matrix={matrix_json}\n")
             f.write(f"count={len(images)}\n")
-            for st_num in (0, 1, 2, 3):
+            for st_num in (0, 1, 2, 3, 4):
                 st_imgs = staged.get(st_num, [])
                 st_json = json.dumps({"include": st_imgs})
                 f.write(f"stage_{st_num}={st_json}\n")

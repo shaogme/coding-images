@@ -64,6 +64,12 @@ case "$TARGET" in
     npins-rust)
         build_image "npins-rust" "images/npins/rust/docker/Dockerfile" "images/npins/rust" "${REPO_PREFIX}/rust-common:latest"
         ;;
+    qemu-rust-common)
+        build_image "qemu-rust-common" "images/qemu/rust/common/docker/Dockerfile" "images/qemu/rust/common" "${REPO_PREFIX}/qemu-common:latest"
+        ;;
+    qemu-rust-cross)
+        build_image "qemu-rust-cross" "images/qemu/rust/cross/docker/Dockerfile" "images/qemu/rust/cross" "${REPO_PREFIX}/qemu-rust-common:latest"
+        ;;
     all|*)
         echo "==> Stage 0: Building common base image..."
         build_image "common" "images/common/docker/Dockerfile" "images/common" ""
@@ -76,10 +82,14 @@ case "$TARGET" in
         build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/podman:latest"
         build_image "qemu-common" "images/qemu/common/docker/Dockerfile" "images/qemu/common" "${REPO_PREFIX}/podman:latest"
 
-        echo "==> Stage 3: Building rust-wasm, rust-cross & npins-rust..."
+        echo "==> Stage 3: Building rust-wasm, rust-cross, npins-rust & qemu-rust-common..."
         build_image "rust-wasm" "images/rust/wasm/docker/Dockerfile" "images/rust/wasm" "${REPO_PREFIX}/rust-common:latest"
         build_image "rust-cross" "images/rust/cross/docker/Dockerfile" "images/rust/cross" "${REPO_PREFIX}/rust-common:latest"
         build_image "npins-rust" "images/npins/rust/docker/Dockerfile" "images/npins/rust" "${REPO_PREFIX}/rust-common:latest"
+        build_image "qemu-rust-common" "images/qemu/rust/common/docker/Dockerfile" "images/qemu/rust/common" "${REPO_PREFIX}/qemu-common:latest"
+
+        echo "==> Stage 4: Building qemu-rust-cross..."
+        build_image "qemu-rust-cross" "images/qemu/rust/cross/docker/Dockerfile" "images/qemu/rust/cross" "${REPO_PREFIX}/qemu-rust-common:latest"
         ;;
 esac
 

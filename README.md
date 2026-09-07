@@ -1,6 +1,6 @@
 # Coding Images
 
-Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `podman` / `npins-common` -> `rust-common` / `qemu-common` -> `rust-wasm` / `rust-cross` / `npins-rust`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
+Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `podman` / `npins-common` -> `rust-common` / `qemu-common` -> `rust-wasm` / `rust-cross` / `npins-rust` / `qemu-rust-common` -> `qemu-rust-cross`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
 
 ---
 
@@ -17,6 +17,8 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
   - [6. npins-rust (Nix/npins + Rust 环境)](#6-npins-rust-nixnpins--rust-环境)
   - [7. rust-wasm (Rust WebAssembly 环境)](#7-rust-wasm-rust-webassembly-环境)
   - [8. rust-cross (Rust 交叉编译与容器环境)](#8-rust-cross-rust-交叉编译与容器环境)
+  - [9. qemu-rust-common (QEMU + Rust 核心开发环境)](#9-qemu-rust-common-qemu--rust-核心开发环境)
+  - [10. qemu-rust-cross (QEMU + Rust 交叉编译与仿真运行环境)](#10-qemu-rust-cross-qemu--rust-交叉编译与仿真运行环境)
 - [镜像架构与设计机制](#镜像架构与设计机制)
   - [树状分层与 mise conf.d 模块化配置](#树状分层与-mise-confd-模块化配置)
   - [统一智能 Entrypoint 引导流程](#统一智能-entrypoint-引导流程)
@@ -77,6 +79,10 @@ flowchart TD
 
     NpinsRust["【层级 3】npins-rust<br/>• nixpkgs.npins"]
 
+    QemuRustCommon["【层级 3】qemu-rust-common<br/>• QEMU 全套虚拟化与系统仿真<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / sccache / cargo-binstall<br/>• /dev/kvm 硬件加速与 Podman 容器引擎"]
+
+    QemuRustCross["【层级 4】qemu-rust-cross<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild<br/>• QEMU 全套虚拟机与仿真运行环境<br/>• 结合 Podman + QEMU 跨架构调试与验证"]
+
     Upstream --> Common
     Common --> Podman
     Common --> NpinsCommon
@@ -85,16 +91,20 @@ flowchart TD
     RustCommon --> NpinsRust
     RustCommon --> RustWasm
     RustCommon --> RustCross
+    QemuCommon --> QemuRustCommon
+    QemuRustCommon --> QemuRustCross
 
     classDef base fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
     classDef l1 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
     classDef l2 fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
     classDef l3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+    classDef l4 fill:#fce4ec,stroke:#c2185b,stroke-width:2px;
 
     class Common base;
     class Podman,NpinsCommon l1;
     class RustCommon,QemuCommon l2;
-    class NpinsRust,RustWasm,RustCross l3;
+    class NpinsRust,RustWasm,RustCross,QemuRustCommon l3;
+    class QemuRustCross l4;
 ```
 
 ---
@@ -200,6 +210,38 @@ flowchart TD
   - **轻量解耦设计**：Podman、运行时配置与 Docker 透明伪装已由基础层 `podman` / `rust-common` 提供，`rust-cross` 聚焦于跨平台编译工具链本身，杜绝重复安装
   - **Docker Compose 支持**：继承统一的 `devices: [/dev/fuse, /dev/net/tun]` 与 `podman-containers` 命名卷持久化机制
 
+### 9. qemu-rust-common (QEMU + Rust 核心开发环境)
+
+在 `qemu-common` 基础上扩展完整的 Rust 核心开发环境，结合 QEMU 虚拟机运行能力、KVM 硬件加速与 Rust 编译器及快速测试工具链，直接满足基于虚拟机或真实硬件仿真的系统级 Rust 开发（如操作系统内核、底层驱动、嵌入式固件等）。
+
+- **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-rust-common:latest`
+- **基础镜像**：`ghcr.io/shaogme/coding-images/qemu-common:latest`
+- **包含 qemu-common 的所有环境**（具备开箱即用的 QEMU 全套组件、OVMF 固件、swtpm、KVM 硬件加速与 Podman 容器运行时），并额外增加：
+  - **开发语言与运行时（mise）**：
+    - Rust: `stable`（包含 `rust-src` 源码组件）
+    - Rust: `nightly`（包含 `rust-src` 源码组件）
+  - **Rust 专属扩展工具**：
+    - `cargo-nextest`（Rust 快速测试运行器）
+    - `cargo-binstall`（二进制快速安装工具）
+    - `sccache`（编译缓存工具）
+    - `cargo-sweep`（构建产物清理工具）
+  - **硬件加速与统一持久化**：
+    - 预置 `/dev/kvm`、`/dev/net/tun`、`/dev/fuse` 节点支持与 `kvm` 用户组
+    - 支持 `qemu-data:/data/qemu`、`rust-target:/data/.cargo/target`、`sccache-cache:/data/sccache`、`podman-containers` 与统一 `coding-config`
+
+### 10. qemu-rust-cross (QEMU + Rust 交叉编译与仿真运行环境)
+
+在 `qemu-rust-common` 基础上扩展 Rust 跨架构交叉编译工具链，结合底座内置的 Podman 容器引擎与 QEMU 仿真/虚拟化环境，原生支持 `cross` 多目标构建并能在容器内直接利用 QEMU 模拟目标架构或启动轻量虚拟机进行执行、测试与验证。
+
+- **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-rust-cross:latest`
+- **基础镜像**：`ghcr.io/shaogme/coding-images/qemu-rust-common:latest`
+- **包含 qemu-rust-common 的所有环境**（具备 QEMU 仿真环境、KVM 加速、Rust 编译器套件与 Podman 引擎），并额外增加：
+  - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
+  - **cross 运行时引擎指定**：预置 `CROSS_CONTAINER_ENGINE=podman`
+  - **跨架构全链路闭环**：通过 cross 完成跨平台编译，借助 QEMU 系统与用户态模拟直接测试目标产物，开箱即用
+  - **Docker Compose 支持**：提供全量虚拟化设备映射与持久化卷
+
+
 ---
 
 ## 镜像架构与设计机制
@@ -247,8 +289,18 @@ flowchart TB
             CrossTools["cross / cargo-zigbuild"]
         end
 
+        subgraph QemuRustCommonLayer["4. qemu-rust-common 镜像层 (20-rust.toml)"]
+            QemuRustTools["Rust stable & nightly + cargo tools<br/>复用底座 QEMU + Podman"]
+        end
+
+        subgraph QemuRustCrossLayer["5. qemu-rust-cross 镜像层 (30-cross.toml)"]
+            QemuCrossTools["cross / cargo-zigbuild<br/>结合 QEMU 跨架构仿真与验证"]
+        end
+
         WasmLayer --> RustLayer
         CrossLayer --> RustLayer
+        QemuRustCommonLayer --> QemuLayer
+        QemuRustCrossLayer --> QemuRustCommonLayer
         RustLayer --> PodmanLayer
         QemuLayer --> PodmanLayer
         PodmanLayer --> CommonLayer
@@ -257,9 +309,9 @@ flowchart TB
 
 1. **配置模块化**：各镜像通过全局 `/etc/mise/conf.d/` 目录独立注入增量配置：
    - `10-common.toml` -> 由 `common` 注入
-   - `20-rust.toml` -> 由 `rust-common` 注入
+   - `20-rust.toml` -> 由 `rust-common` 与 `qemu-rust-common` 注入
    - `30-wasm.toml` -> 由 `rust-wasm` 注入（继承并添加 Rust WebAssembly targets）
-   - `30-cross.toml` -> 由 `rust-cross` 注入（继承并配置 `cross` 交叉编译工具）
+   - `30-cross.toml` -> 由 `rust-cross` 与 `qemu-rust-cross` 注入（继承并配置 `cross` 交叉编译工具）
 2. **全局版本锁定（Global Lockfile）**：各镜像在构建时通过 `mise lock --global` 固化当前工具链的确定性版本与 options/targets 元数据，杜绝 `nightly` 跨天版本漂移与 Target 继承丢失。
 
 ### 统一智能 Entrypoint 引导流程
@@ -538,10 +590,10 @@ python3 scripts/discover_images.py --format matrix
 仓库内置了 `scripts/build_local.sh` 脚本，支持按依赖层级拓扑构建镜像：
 
 ```bash
-# 构建全部镜像（按 Stage 0 -> Stage 1 -> Stage 2 -> Stage 3 拓扑构建）
+# 构建全部镜像（按 Stage 0 -> Stage 1 -> Stage 2 -> Stage 3 -> Stage 4 拓扑构建）
 ./scripts/build_local.sh all
 
-# 单独构建指定镜像（如 rust-wasm）
+# 单独构建指定镜像（如 rust-wasm、qemu-rust-cross）
 ./scripts/build_local.sh rust-wasm
 ```
 
@@ -553,18 +605,20 @@ python3 scripts/discover_images.py --format matrix
 
 ```mermaid
 flowchart TD
-    Trigger(["触发构建: push / schedule / workflow_dispatch"]) --> Discover["阶段一: discover-images<br/>计算 4 级 Stage 构建矩阵"]
+    Trigger(["触发构建: push / schedule / workflow_dispatch"]) --> Discover["阶段一: discover-images<br/>计算 5 级 Stage 构建矩阵"]
 
     Discover --> Stage0["阶段二: Stage 0 (Base)<br/>构建 common 多架构镜像并发布"]
     Stage0 --> Stage1["阶段三: Stage 1 (Layer 1)<br/>并行构建 podman 与 npins-common 并发布"]
     Stage1 --> Stage2["阶段四: Stage 2 (Layer 2)<br/>并行构建基于 podman 的 rust-common 与 qemu-common 并发布"]
-    Stage2 --> Stage3["阶段五: Stage 3 (Layer 3)<br/>并行构建 rust-wasm、rust-cross 与 npins-rust 并发布"]
+    Stage2 --> Stage3["阶段五: Stage 3 (Layer 3)<br/>并行构建 rust-wasm、rust-cross、npins-rust 与 qemu-rust-common 并发布"]
+    Stage3 --> Stage4["阶段六: Stage 4 (Layer 4)<br/>构建基于 qemu-rust-common 的 qemu-rust-cross 并发布"]
 ```
 
 1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建，合并推送 Multi-Arch Manifest。
 2. **Stage 1 (Layer 1)**：并行构建基于 `common` 的 `podman` 与 `npins-common`。
 3. **Stage 2 (Layer 2)**：并行构建基于 `podman` 的 `rust-common` 与 `qemu-common`。
-4. **Stage 3 (Layer 3)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross` 与 `npins-rust`。
+4. **Stage 3 (Layer 3)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross`、`npins-rust` 与基于 `qemu-common` 的 `qemu-rust-common`。
+5. **Stage 4 (Layer 4)**：构建基于 `qemu-rust-common` 的 `qemu-rust-cross`。
 
 ### 镜像标签管理策略
 
@@ -583,7 +637,7 @@ flowchart TD
 │   └── devcontainer.json            # 根工作区 Dev Container 标准化配置
 ├── .github/
 │   └── workflows/
-│       ├── build-and-publish.yml    # 4 阶段拓扑编排工作流
+│       ├── build-and-publish.yml    # 5 阶段拓扑编排工作流
 │       └── build-single-image.yml   # 跨架构原生构建与 Manifest 合并复用工作流
 ├── images/
 │   ├── common/
@@ -615,13 +669,30 @@ flowchart TD
 │   │   │   └── Dockerfile           # podman 构建规则 (FROM common)
 │   │   └── docker-compose.yml
 │   ├── qemu/
-│   │   └── common/
-│   │       ├── .devcontainer/
-│   │       │   └── devcontainer.json # qemu-common Dev Container 配置
-│   │       ├── docker/
-│   │       │   ├── Dockerfile       # qemu-common 构建规则 (FROM podman)
-│   │       │   └── entrypoint.sh    # QEMU /dev/kvm 设备节点权限与引导脚本
-│   │       └── docker-compose.yml
+│   │   ├── common/
+│   │   │   ├── .devcontainer/
+│   │   │   │   └── devcontainer.json # qemu-common Dev Container 配置
+│   │   │   ├── docker/
+│   │   │   │   ├── Dockerfile       # qemu-common 构建规则 (FROM podman)
+│   │   │   │   └── entrypoint.sh    # QEMU /dev/kvm 设备节点权限与引导脚本
+│   │   │   └── docker-compose.yml
+│   │   └── rust/
+│   │       ├── common/
+│   │       │   ├── .config/
+│   │       │   │   └── mise.toml    # Rust 增量工具 (20-rust.toml)
+│   │       │   ├── .devcontainer/
+│   │       │   │   └── devcontainer.json # qemu-rust-common Dev Container 配置
+│   │       │   ├── docker/
+│   │       │   │   └── Dockerfile   # qemu-rust-common 构建规则 (FROM qemu-common)
+│   │       │   └── docker-compose.yml
+│   │       └── cross/
+│   │           ├── .config/
+│   │           │   └── mise.toml    # 交叉编译工具配置 (30-cross.toml)
+│   │           ├── .devcontainer/
+│   │           │   └── devcontainer.json # qemu-rust-cross Dev Container 配置
+│   │           ├── docker/
+│   │           │   └── Dockerfile   # qemu-rust-cross 构建规则 (FROM qemu-rust-common)
+│   │           └── docker-compose.yml
 │   └── rust/
 │       ├── common/
 │       │   ├── .config/
