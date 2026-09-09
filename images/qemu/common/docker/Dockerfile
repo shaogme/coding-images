@@ -18,7 +18,9 @@ RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
         nixpkgs#mtools \
         nixpkgs#dnsmasq \
         nixpkgs#bridge-utils \
-        nixpkgs#socat
+        nixpkgs#socat \
+        nixpkgs#openssh \
+        nixpkgs#sshpass
 
 # Configure standard UEFI firmware symlinks, kvm group, and persistent VM data directory
 RUN set -e; \
