@@ -4,10 +4,10 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Install npins dependency pin tool via nix-env on top of common
+# Install npins dependency pin tool via nix profile on top of common
 RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    nix-env -iA \
-        nixpkgs.npins
+    nix profile add \
+        nixpkgs#npins
 
 # Default command passed to entrypoint (inherited from common base)
 CMD []

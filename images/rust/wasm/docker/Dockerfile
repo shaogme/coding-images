@@ -4,14 +4,14 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Install WebAssembly and headless browser testing packages via nix-env
+# Install WebAssembly and headless browser testing packages via nix profile
 RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    nix-env -iA \
-        nixpkgs.fontconfig \
-        nixpkgs.dejavu_fonts \
-        nixpkgs.mesa \
-        nixpkgs.firefox \
-        nixpkgs.geckodriver
+    nix profile add \
+        nixpkgs#fontconfig \
+        nixpkgs#dejavu_fonts \
+        nixpkgs#mesa \
+        nixpkgs#firefox \
+        nixpkgs#geckodriver
 
 # Set headless browser and fontconfig environment variables
 ENV FONTCONFIG_PATH=/etc/fonts \

@@ -11,7 +11,7 @@ rust = [
     },
     {
         version = "nightly",
-        components = ["rust-src"],
+        components = ["rust-src", "miri"],
     },
 ]
 
@@ -30,6 +30,41 @@ sccache = {
 }
 
 "cargo:cargo-sweep" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
+"cargo:cargo-geiger" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
+"cargo:cargo-audit" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
+"cargo:flamegraph" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
+"cargo:samply" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
+"cargo:cargo-show-asm" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
+"cargo:cargo-expand" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
+"cargo:cargo-bloat" = {
     version = "latest",
     depends = ["cargo-binstall"],
 }

@@ -18,9 +18,9 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
     CARGO_NET_GIT_FETCH_WITH_CLI=true \
     PATH=/usr/local/share/mise/shims:$PATH
 
-# Install system-level binaries via nix-env into system default profile
-RUN nix-env -iA \
-        nixpkgs.bubblewrap
+# Install system-level binaries via nix profile into system default profile
+RUN nix profile add \
+    nixpkgs#bubblewrap
 
 # Configure global interactive shell hooks for mise and devbox into /etc/bashrc
 RUN { \

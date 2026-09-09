@@ -7,18 +7,18 @@ WORKDIR /workspace
 # Copy custom entrypoint for automatic KVM, TUN, and FUSE device permissions
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/qemu-entrypoint.sh
 
-# Install QEMU, OVMF firmware, swtpm, cloud-init utilities, ISO/disk tools, and virtual networking via nix-env
+# Install QEMU, OVMF firmware, swtpm, cloud-init utilities, ISO/disk tools, and virtual networking via nix profile
 RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    nix-env -iA \
-        nixpkgs.qemu \
-        nixpkgs.OVMF.fd \
-        nixpkgs.swtpm \
-        nixpkgs.cloud-utils \
-        nixpkgs.xorriso \
-        nixpkgs.mtools \
-        nixpkgs.dnsmasq \
-        nixpkgs.bridge-utils \
-        nixpkgs.socat
+    nix profile add \
+        nixpkgs#qemu \
+        nixpkgs#OVMF.fd \
+        nixpkgs#swtpm \
+        nixpkgs#cloud-utils \
+        nixpkgs#xorriso \
+        nixpkgs#mtools \
+        nixpkgs#dnsmasq \
+        nixpkgs#bridge-utils \
+        nixpkgs#socat
 
 # Configure standard UEFI firmware symlinks, kvm group, and persistent VM data directory
 RUN set -e; \

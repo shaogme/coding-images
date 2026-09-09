@@ -37,6 +37,15 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     fi; \
     chmod -R 1777 /usr/local/share/rustup /usr/local/share/pnpm 2>/dev/null || true;
 
+# Install rust debug tools
+RUN nix profile add \
+    nixpkgs#valgrind \
+    nixpkgs#gdb \
+    nixpkgs#lldb \
+    nixpkgs#llvmPackages.llvm \
+    nixpkgs#perf \
+    nixpkgs#elfutils
+
 # Configure default sccache compiler cache wrapper, cache directory, and incremental setting
 ENV RUSTC_WRAPPER=sccache \
     SCCACHE_DIR=/data/sccache \

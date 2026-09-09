@@ -4,12 +4,12 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Install Podman, crun runtime, and container virtualization packages via nix-env
+# Install Podman, crun runtime, and container virtualization packages via nix profile
 RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    nix-env -iA \
-        nixpkgs.podman \
-        nixpkgs.crun \
-        nixpkgs.conmon
+    nix profile add \
+        nixpkgs#podman \
+        nixpkgs#crun \
+        nixpkgs#conmon
 
 # Configure Podman engine defaults and container runtime for in-container execution
 RUN set -e; \
