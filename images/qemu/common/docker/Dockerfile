@@ -20,7 +20,9 @@ RUN nix profile add \
 
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-qemu.toml
 
-# Configure standard UEFI firmware symlinks, kvm group, and persistent VM data directory
+# Configure standard UEFI firmware symlinks, kvm group, and persistent VM data directory.
+# /dev/kvm is a host device; its mode is controlled by the container runtime and
+# must not be changed from the image bootstrap process.
 RUN set -e; \
     # Ensure /usr/share/OVMF and /usr/share/qemu links exist for standard tools and scripts
     mkdir -p /usr/share/OVMF /usr/share/qemu /data/qemu; \

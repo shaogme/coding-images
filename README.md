@@ -176,7 +176,7 @@ flowchart TD
     - `dnsmasq`、`bridge-utils`、`socat`：虚拟网络桥接、DHCP/DNS 服务分配与 QMP 控制套接字中继
   - **硬件加速与无缝权限映射**：
     - 预建 `kvm` 用户组并自动将 `dev` 用户加入该组
-    - 智能入口脚本自动探测并赋予 `/dev/kvm`、`/dev/net/tun` 与 `/dev/fuse` 节点 `0666` 权限，彻底杜绝普通用户无法调用 KVM 硬件加速的问题
+    - Compose / Dev Container 显式传入 `/dev/kvm`、`/dev/net/tun` 与 `/dev/fuse`；设备节点权限由宿主机和容器运行时控制，镜像启动不会尝试修改宿主设备
   - **Docker Compose 支持**：提供 `devices: [/dev/kvm, /dev/net/tun, /dev/fuse]` 与 `qemu-data:/data/qemu` 独立持久化卷（用于持久化 VM 镜像与 cloud-init 配置文件）
 
 ### 6. npins-rust (Nix/npins + Rust 环境)
@@ -425,7 +425,7 @@ x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/rust-common:latest
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0}
-    - HOST_UID=${HOST_UID:-1000:1000} # 自适应宿主机 UID/GID
+    - HOST_UID # 显式设置为 host_uid[:host_gid]；未设置时自动使用已挂载 workspace 的属主
     - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
     - CARGO_INCREMENTAL=0 # sccache 需关闭增量编译以生效缓存
     - CARGO_TARGET_DIR=/data/.cargo/target

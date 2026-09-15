@@ -115,7 +115,6 @@ if [[ "$target" == podman ]]; then
     dev_output="$(docker run --rm --privileged \
         --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
-        --env HOST_UID=1000:1000 \
         "$image" /bin/bash -c '
             set -e
             podman run --rm docker.io/library/alpine:latest echo "dev-podman-bridge-ok"
@@ -159,7 +158,6 @@ COMPOSE
     dev_compose_output="$(docker run --rm --privileged \
         --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
-        --env HOST_UID=1000:1000 \
         "$image" /bin/bash -c '
             set -e
             workdir="$(mktemp -d -p /tmp)"
@@ -194,14 +192,13 @@ COMPOSE
     docker run --rm --privileged \
         --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
-        --env HOST_UID=1000:1000 \
         -v "$vol_name:/var/lib/containers" \
         "$image" podman run --rm docker.io/library/alpine:latest echo "vol-dev-ok" | grep -Fq "vol-dev-ok"
     docker volume rm -f "$vol_name" >/dev/null
 fi
 
 echo "==> checking non-root identity handoff"
-docker run --rm --env HOST_UID=1000:1000 "$image" /bin/sh -c '
+docker run --rm "$image" /bin/sh -c '
     test "$HOME" = /home/dev
     test "$USER" = dev
     test "$LOGNAME" = dev

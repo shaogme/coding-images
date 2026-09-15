@@ -12,11 +12,3 @@ path = "/data/qemu"
 mode = "1777"
 owner = "identity.target"
 run_as = "root"
-
-[[bootstrap.actions]]
-id = "kvm-device"
-kind = "filesystem.chmod"
-path = "/dev/kvm"
-mode = "0666"
-when = "exists('/dev/kvm')"
-run_as = "root"
