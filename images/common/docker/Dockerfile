@@ -8,7 +8,8 @@ WORKDIR /workspace
 # tools. Runtime environment construction is declared in dev-env.toml.
 ENV MISE_DATA_DIR=/usr/local/share/mise \
     MISE_CONFIG_DIR=/etc/mise \
-    MISE_YES=1
+    MISE_YES=1 \
+    MISE_CACHE_DIR=/data/cache/mise
 
 RUN nix profile add nixpkgs#bubblewrap
 

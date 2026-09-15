@@ -4,6 +4,9 @@ extends = ["coding-images-qemu"]
 
 [config.environment.variables]
 RUSTUP_HOME = "/usr/local/share/rustup"
+MISE_RUSTUP_HOME = "/usr/local/share/rustup"
+CARGO_HOME = "/usr/local/share/cargo"
+MISE_CARGO_HOME = "/usr/local/share/cargo"
 PNPM_HOME = "/usr/local/share/pnpm"
 RUSTC_WRAPPER = "sccache"
 SCCACHE_DIR = "/data/cache/sccache"
@@ -12,8 +15,8 @@ CARGO_INCREMENTAL = "0"
 
 [override."environment.path.append"]
 op = "append"
-values = ["/usr/local/share/pnpm/bin", "/usr/local/share/pnpm"]
-reason = "add the pnpm bin directories to the inherited runtime path"
+values = ["/usr/local/share/cargo/bin", "/usr/local/share/pnpm/bin", "/usr/local/share/pnpm"]
+reason = "add the cargo and pnpm bin directories to the inherited runtime path"
 
 [config.features.sccache]
 enabled = true

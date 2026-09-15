@@ -7,8 +7,11 @@ WORKDIR /workspace
 # Build-time locations for mise-installed Rust and Node tools. The same values
 # are exported at runtime by .config/dev-env.toml.
 ENV RUSTUP_HOME=/usr/local/share/rustup \
+    MISE_RUSTUP_HOME=/usr/local/share/rustup \
+    CARGO_HOME=/usr/local/share/cargo \
+    MISE_CARGO_HOME=/usr/local/share/cargo \
     PNPM_HOME=/usr/local/share/pnpm \
-    PATH=/usr/local/share/pnpm/bin:/usr/local/share/pnpm:$PATH
+    PATH=/usr/local/share/cargo/bin:/usr/local/share/pnpm/bin:/usr/local/share/pnpm:$PATH
 
 COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-rust.toml
@@ -36,10 +39,10 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
         echo "Error: No nightly Rust toolchain found after linking" >&2; \
         exit 1; \
     fi; \
-    chmod -R 1777 /usr/local/share/rustup /usr/local/share/pnpm 2>/dev/null || true;
+    chmod -R 1777 /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm 2>/dev/null || true;
 
 RUN set -e; \
-    for shared_dir in /usr/local/share/mise /usr/local/share/rustup /usr/local/share/pnpm; do \
+    for shared_dir in /usr/local/share/mise /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm; do \
         if [ -d "$shared_dir" ]; then \
             chmod -R a+rwX "$shared_dir"; \
             find "$shared_dir" -type d -exec chmod 0777 {} +; \

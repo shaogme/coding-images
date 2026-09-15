@@ -4,6 +4,9 @@ extends = ["coding-images-podman"]
 
 [config.environment.variables]
 RUSTUP_HOME = "/usr/local/share/rustup"
+MISE_RUSTUP_HOME = "/usr/local/share/rustup"
+CARGO_HOME = "/usr/local/share/cargo"
+MISE_CARGO_HOME = "/usr/local/share/cargo"
 PNPM_HOME = "/usr/local/share/pnpm"
 CARGO_INCREMENTAL = "0"
 CARGO_TARGET_DIR = "/data/.cargo/target"
@@ -16,8 +19,8 @@ when = "features.sccache.enabled && !features.sccache.disabled"
 
 [override."environment.path.append"]
 op = "append"
-values = ["/usr/local/share/pnpm/bin", "/usr/local/share/pnpm"]
-reason = "add the pnpm bin directories to the inherited runtime path"
+values = ["/usr/local/share/cargo/bin", "/usr/local/share/pnpm/bin", "/usr/local/share/pnpm"]
+reason = "add the cargo and pnpm bin directories to the inherited runtime path"
 
 [config.features.sccache]
 enabled = true
