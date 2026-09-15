@@ -8,9 +8,9 @@ WORKDIR /workspace
 COPY .config/mise.toml /etc/mise/conf.d/30-cross.toml
 
 # Declaratively lock global toolchain versions and pre-install cross tools
-RUN set -e; \
-    if [ -r /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
+RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+    set -e; \
     echo "Pre-installing Rust cross-compilation tools during docker build..."; \
-    mise trust --all; \
-    mise lock --global --platform linux-x64,linux-arm64; \
-    mise install;
+    RUN_AS_ROOT=1 mise trust --all; \
+    RUN_AS_ROOT=1 mise lock --global --platform linux-x64,linux-arm64; \
+    RUN_AS_ROOT=1 mise install;

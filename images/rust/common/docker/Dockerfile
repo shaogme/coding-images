@@ -14,12 +14,12 @@ COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-rust.toml
 
 # Pre-install global Rust tools and toolchains with BuildKit cache mounts and lock toolchain
-RUN set -e; \
-    if [ -r /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
+RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+    set -e; \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
-    mise trust --all; \
-    mise lock --global --platform linux-x64,linux-arm64; \
-    mise install; \
+    RUN_AS_ROOT=1 mise trust --all; \
+    RUN_AS_ROOT=1 mise lock --global --platform linux-x64,linux-arm64; \
+    RUN_AS_ROOT=1 mise install; \
     TRIPLE=$(rustc -vV 2>/dev/null | sed -n 's/host: //p' || echo "$(uname -m)-unknown-linux-gnu"); \
     cd "${RUSTUP_HOME}/toolchains"; \
     LATEST_NIGHTLY=$(ls -d nightly-[0-9]* 2>/dev/null | sort -V | tail -n 1); \
@@ -31,9 +31,10 @@ RUN set -e; \
             ln -sfn "$LATEST_NIGHTLY" "${RUSTUP_HOME}/update-hashes/nightly-${TRIPLE}"; \
             ln -sfn "$LATEST_NIGHTLY" "${RUSTUP_HOME}/update-hashes/nightly"; \
         fi; \
-    elif ! rustup toolchain list | grep -q "^nightly"; then \
-        echo "Fallback: installing nightly toolchain directly via rustup..."; \
-        rustup toolchain install nightly --component rust-src; \
+    fi; \
+    if ! rustup toolchain list | grep -q "^nightly"; then \
+        echo "Error: No nightly Rust toolchain found after linking" >&2; \
+        exit 1; \
     fi; \
     chmod -R 1777 /usr/local/share/rustup /usr/local/share/pnpm 2>/dev/null || true;
 

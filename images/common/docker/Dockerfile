@@ -16,10 +16,14 @@ RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise
 COPY .config/mise.toml /etc/mise/conf.d/10-common.toml
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/20-coding-images.toml
 
-RUN set -e; \
-    mise trust --all; \
-    mise lock --global --platform linux-x64,linux-arm64; \
-    mise install; \
+# mise invokes helper scripts through bash. The image's bash shim bootstraps
+# root callers, so keep these build-time operations explicitly root while
+# leaving the runtime RUN_AS_ROOT default unset.
+RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+    set -e; \
+    RUN_AS_ROOT=1 mise trust --all; \
+    RUN_AS_ROOT=1 mise lock --global --platform linux-x64,linux-arm64; \
+    RUN_AS_ROOT=1 mise install; \
     chmod -R 1777 /etc/mise /usr/local/share/mise; \
     chmod -R a+rwX /etc/mise
 

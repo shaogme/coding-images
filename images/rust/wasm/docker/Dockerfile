@@ -53,11 +53,11 @@ COPY .config/mise.toml /etc/mise/conf.d/30-wasm.toml
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/40-coding-images-rust-wasm.toml
 
 # Declaratively lock global toolchain versions and pre-install WebAssembly tools/targets
-RUN set -e; \
-    if [ -r /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
+RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+    set -e; \
     echo "Locking global toolchain specifications and WebAssembly targets..."; \
-    mise trust --all; \
-    mise lock --global --platform linux-x64,linux-arm64; \
-    mise install;
+    RUN_AS_ROOT=1 mise trust --all; \
+    RUN_AS_ROOT=1 mise lock --global --platform linux-x64,linux-arm64; \
+    RUN_AS_ROOT=1 mise install;
 
 RUN printf 'coding-images-rust-wasm\n' > /etc/dev-env/default-profile
