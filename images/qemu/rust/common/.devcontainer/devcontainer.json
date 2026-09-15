@@ -16,13 +16,12 @@
   "runArgs": [
     "--device=/dev/kvm",
     "--device=/dev/net/tun",
-    "--device=/dev/fuse"
+    "--device=/dev/fuse",
+    "--cgroupns=host"
   ],
   "containerEnv": {
-    "ROOT_PASSWORD": "root",
     "CARGO_INCREMENTAL": "0",
     "CARGO_TARGET_DIR": "/data/.cargo/target",
-    "RUSTC_WRAPPER": "sccache",
     "SCCACHE_DIR": "/data/sccache"
   },
   "mounts": [

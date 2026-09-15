@@ -4,12 +4,8 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Copy custom entrypoint for automatic KVM, TUN, and FUSE device permissions
-COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/qemu-entrypoint.sh
-
 # Install QEMU, OVMF firmware, swtpm, cloud-init utilities, ISO/disk tools, and virtual networking via nix profile
-RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    nix profile add \
+RUN nix profile add \
         nixpkgs#qemu \
         nixpkgs#OVMF.fd \
         nixpkgs#swtpm \
@@ -21,6 +17,8 @@ RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
         nixpkgs#socat \
         nixpkgs#openssh \
         nixpkgs#sshpass
+
+COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-qemu.toml
 
 # Configure standard UEFI firmware symlinks, kvm group, and persistent VM data directory
 RUN set -e; \
@@ -38,8 +36,4 @@ RUN set -e; \
     # Shared permissions for VM storage
     chmod 1777 /data/qemu
 
-# Set the QEMU-aware entrypoint wrapper
-ENTRYPOINT ["/usr/local/bin/qemu-entrypoint.sh"]
-
-# Default command passed to entrypoint (inherited from common base)
-CMD []
+RUN printf 'coding-images-qemu\n' > /etc/dev-env/default-profile

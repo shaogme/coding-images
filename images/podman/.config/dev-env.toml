@@ -1,0 +1,77 @@
+schema = 1
+id = "coding-images-podman"
+extends = ["coding-images"]
+
+[override."environment.path.prepend"]
+op = "replace"
+values = ["/usr/local/share/mise/shims", "/usr/local/bin", "/nix/var/nix/profiles/default/bin"]
+reason = "put local wrapper scripts in /usr/local/bin ahead of nix profile"
+
+[[bootstrap.actions]]
+id = "usr-local-bin"
+kind = "filesystem.ensure_dir"
+path = "/usr/local/bin"
+mode = "0755"
+owner = "root"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "docker-link"
+kind = "filesystem.ensure_symlink"
+link = "/usr/local/bin/docker"
+target = "/nix/var/nix/profiles/default/bin/podman"
+owner = "root"
+run_as = "root"
+depends_on = ["usr-local-bin"]
+
+[[bootstrap.actions]]
+id = "docker-compose-link"
+kind = "filesystem.ensure_symlink"
+link = "/usr/local/bin/docker-compose"
+target = "/nix/var/nix/profiles/default/bin/podman-compose"
+owner = "root"
+run_as = "root"
+depends_on = ["usr-local-bin"]
+
+[[bootstrap.actions]]
+id = "var-lib-containers"
+kind = "filesystem.ensure_dir"
+path = "/var/lib/containers"
+mode = "1777"
+owner = "root"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "containers-dev"
+kind = "filesystem.ensure_dir"
+path = "/var/lib/containers/dev"
+mode = "1777"
+owner = "identity.target"
+run_as = "root"
+depends_on = ["var-lib-containers"]
+
+[[bootstrap.actions]]
+id = "containers-data-symlink"
+kind = "filesystem.ensure_symlink"
+link = "/data/containers"
+target = "/var/lib/containers/dev"
+owner = "identity.target"
+run_as = "root"
+depends_on = ["containers-dev"]
+
+[[bootstrap.actions]]
+id = "run-podman"
+kind = "filesystem.ensure_dir"
+path = "/run/podman"
+mode = "1777"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "docker-sock-link"
+kind = "filesystem.ensure_symlink"
+link = "/var/run/docker.sock"
+target = "/run/podman/podman.sock"
+owner = "identity.target"
+run_as = "root"
+depends_on = ["run-podman"]

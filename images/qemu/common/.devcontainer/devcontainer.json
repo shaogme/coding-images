@@ -16,11 +16,9 @@
   "runArgs": [
     "--device=/dev/kvm",
     "--device=/dev/net/tun",
-    "--device=/dev/fuse"
+    "--device=/dev/fuse",
+    "--cgroupns=host"
   ],
-  "containerEnv": {
-    "ROOT_PASSWORD": "root"
-  },
   "mounts": [
     "source=qemu-data,target=/data/qemu,type=volume",
     "source=podman-containers,target=/var/lib/containers,type=volume",

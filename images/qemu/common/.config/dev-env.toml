@@ -1,0 +1,22 @@
+schema = 1
+id = "coding-images-qemu"
+extends = ["coding-images-podman"]
+
+[config.environment.variables]
+QEMU_DATA_DIR = "/data/qemu"
+
+[[bootstrap.actions]]
+id = "qemu-data"
+kind = "filesystem.ensure_dir"
+path = "/data/qemu"
+mode = "1777"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "kvm-device"
+kind = "filesystem.chmod"
+path = "/dev/kvm"
+mode = "0666"
+when = "exists('/dev/kvm')"
+run_as = "root"

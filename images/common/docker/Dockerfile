@@ -4,76 +4,24 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Copy custom entrypoint for automatic mise environment loading
-COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/mise-entrypoint.sh
-
-# Configure global mise, nix, binstall, cargo, and devbox environment variables
+# These variables are needed while the image layer installs the global mise
+# tools. Runtime environment construction is declared in dev-env.toml.
 ENV MISE_DATA_DIR=/usr/local/share/mise \
     MISE_CONFIG_DIR=/etc/mise \
-    MISE_YES=1 \
-    XDG_DATA_HOME=/data \
-    NIX_PROFILE=/nix/var/nix/profiles/default \
-    BINSTALL_NO_CONFIRM=true \
-    BINSTALL_DISABLE_TELEMETRY=true \
-    CARGO_NET_GIT_FETCH_WITH_CLI=true \
-    PATH=/usr/local/share/mise/shims:$PATH
+    MISE_YES=1
 
-# Install system-level binaries via nix profile into system default profile
-RUN nix profile add \
-    nixpkgs#bubblewrap
+RUN nix profile add nixpkgs#bubblewrap
 
-# Configure global interactive shell hooks for mise and devbox into /etc/bashrc
-RUN { \
-        echo '# Global interactive shell hooks for mise and devbox'; \
-        echo 'if [[ $- == *i* ]]; then'; \
-        echo '  type -P mise &>/dev/null && eval "$(mise activate bash 2>/dev/null || true)"'; \
-        echo '  if type -P devbox &>/dev/null; then'; \
-        echo '    _devbox_global="${DEVBOX_DATA_DIR:-/data/devbox}/global/default"'; \
-        echo '    if [ -f "$_devbox_global/devbox.json" ]; then'; \
-        echo '      mkdir -p "$_devbox_global/.devbox/gen/scripts" 2>/dev/null || true'; \
-        echo '      [ -f "$_devbox_global/.devbox/gen/scripts/.hooks.sh" ] || touch "$_devbox_global/.devbox/gen/scripts/.hooks.sh" 2>/dev/null || true'; \
-        echo '      eval "$(devbox global shellenv --init-hook 2>/dev/null || true)" 2>/dev/null || true'; \
-        echo '    fi'; \
-        echo '    unset _devbox_global'; \
-        echo '    __devbox_hook() {'; \
-        echo '      local dir="$PWD"'; \
-        echo '      if [ "$dir" != "${__devbox_last_dir:-}" ]; then'; \
-        echo '        __devbox_last_dir="$dir"'; \
-        echo '        if [ -f "$dir/devbox.json" ] && [ "${DEVBOX_PROJECT_ROOT:-}" != "$dir" ]; then'; \
-        echo '          mkdir -p "$dir/.devbox/gen/scripts" 2>/dev/null || true'; \
-        echo '          [ -f "$dir/.devbox/gen/scripts/.hooks.sh" ] || touch "$dir/.devbox/gen/scripts/.hooks.sh" 2>/dev/null || true'; \
-        echo '          eval "$(devbox shellenv --init-hook 2>/dev/null || true)" 2>/dev/null || true'; \
-        echo '        fi'; \
-        echo '      fi'; \
-        echo '    }'; \
-        echo '    if [[ ";$PROMPT_COMMAND;" != *";__devbox_hook;"* ]]; then'; \
-        echo '      PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}__devbox_hook"'; \
-        echo '    fi'; \
-        echo '  fi'; \
-        echo 'fi'; \
-    } >> /etc/bashrc
-
-# Copy global mise base configuration into conf.d
 RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise
 COPY .config/mise.toml /etc/mise/conf.d/10-common.toml
+COPY .config/dev-env.toml /etc/dev-env/profiles.d/20-coding-images.toml
 
-# Pre-install global common mise tools and lock global tool versions
-RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
-    set -e; \
-    echo "Pre-installing common mise tools during docker build..."; \
+RUN set -e; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install; \
-    chmod -R 1777 /etc/mise /usr/local/share/mise && \
-    chmod -R a+rwX /etc/mise;
+    chmod -R 1777 /etc/mise /usr/local/share/mise; \
+    chmod -R a+rwX /etc/mise
 
-# Create unified persistent storage directories with shared permissions for AI config, devbox data, sccache, and cargo target
-RUN mkdir -p /data/coding-config /data/devbox /data/.cargo/target /data/sccache && \
-    chmod 1777 /data/coding-config /data/devbox /data/sccache && \
-    chmod -R 1777 /data/.cargo
-
-# Set the custom entrypoint
-ENTRYPOINT ["/usr/local/bin/mise-entrypoint.sh"]
-
-# Default command passed to entrypoint (empty to trigger default behavior: sshd or bash)
-CMD []
+# The derived profile adds the coding-images providers and bootstrap actions.
+RUN printf 'coding-images\n' > /etc/dev-env/default-profile

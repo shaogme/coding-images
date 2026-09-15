@@ -5,19 +5,12 @@ ARG TARGETARCH
 WORKDIR /workspace
 
 # Install WebAssembly and headless browser testing packages via nix profile
-RUN --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    nix profile add \
+RUN nix profile add \
         nixpkgs#fontconfig \
         nixpkgs#dejavu_fonts \
         nixpkgs#mesa \
         nixpkgs#firefox \
         nixpkgs#geckodriver
-
-# Set headless browser and fontconfig environment variables
-ENV FONTCONFIG_PATH=/etc/fonts \
-    FONTCONFIG_FILE=/etc/fonts/fonts.conf \
-    MOZ_HEADLESS=1 \
-    LIBGL_ALWAYS_SOFTWARE=1
 
 # Configure fontconfig and silent Firefox headless preferences via enterprise policies
 RUN set -e; \
@@ -57,15 +50,14 @@ RUN set -e; \
     } > /etc/firefox/policies/policies.json
 
 COPY .config/mise.toml /etc/mise/conf.d/30-wasm.toml
+COPY .config/dev-env.toml /etc/dev-env/profiles.d/40-coding-images-rust-wasm.toml
 
 # Declaratively lock global toolchain versions and pre-install WebAssembly tools/targets
-RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
-    --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    set -e; \
+RUN set -e; \
+    if [ -r /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     echo "Locking global toolchain specifications and WebAssembly targets..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install;
 
-# Default command passed to entrypoint (inherited from common base)
-CMD []
+RUN printf 'coding-images-rust-wasm\n' > /etc/dev-env/default-profile

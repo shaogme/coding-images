@@ -1,0 +1,51 @@
+schema = 1
+id = "coding-images-rust"
+extends = ["coding-images-podman"]
+
+[config.environment.variables]
+RUSTUP_HOME = "/usr/local/share/rustup"
+PNPM_HOME = "/usr/local/share/pnpm"
+CARGO_INCREMENTAL = "0"
+CARGO_TARGET_DIR = "/data/.cargo/target"
+SCCACHE_DIR = "/data/sccache"
+SCCACHE_IGNORE_SERVER_IO_ERROR = "1"
+
+[config.environment.conditional_variables.RUSTC_WRAPPER]
+value = "sccache"
+when = "features.sccache.enabled && !features.sccache.disabled"
+
+[override."environment.path.append"]
+op = "append"
+values = ["/usr/local/share/pnpm/bin", "/usr/local/share/pnpm"]
+reason = "add the pnpm bin directories to the inherited runtime path"
+
+[config.features.sccache]
+enabled = true
+disabled = false
+default_wrapper = "sccache"
+
+[inputs.CARGO_INCREMENTAL]
+target = "environment.variables.CARGO_INCREMENTAL"
+type = "enum"
+values = ["0", "1"]
+runtime = true
+
+[inputs.CARGO_TARGET_DIR]
+target = "environment.variables.CARGO_TARGET_DIR"
+type = "path"
+runtime = true
+
+[inputs.SCCACHE_DIR]
+target = "environment.variables.SCCACHE_DIR"
+type = "path"
+runtime = true
+
+[inputs.SCCACHE_DISABLE]
+target = "features.sccache.disabled"
+type = "bool"
+runtime = true
+
+[inputs.ENABLE_SCCACHE]
+target = "features.sccache.enabled"
+type = "bool"
+runtime = true

@@ -1,0 +1,191 @@
+schema = 1
+id = "coding-images"
+extends = ["nixos-docker"]
+
+[config.environment.variables]
+MISE_DATA_DIR = "/usr/local/share/mise"
+MISE_CONFIG_DIR = "/etc/mise"
+MISE_YES = "1"
+XDG_DATA_HOME = "/data"
+BINSTALL_NO_CONFIRM = "true"
+BINSTALL_DISABLE_TELEMETRY = "true"
+CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+DEVBOX_DATA_DIR = "/data/devbox"
+CODING_CONFIG_DIR = "/data/coding-config"
+CARGO_TARGET_DIR = "/data/.cargo/target"
+
+[override."environment.path.prepend"]
+op = "replace"
+values = ["/usr/local/share/mise/shims", "/nix/var/nix/profiles/default/bin"]
+reason = "put the coding-image tool shims ahead of the base runtime path"
+
+[config.features.mise]
+enabled = true
+install_policy = "on-demand"
+
+[config.features.devbox]
+enabled = true
+auto_init = "never"
+
+[config.features.devbox-global]
+enabled = true
+
+[config.features.devbox-project]
+enabled = true
+
+[config.features.devbox-init]
+enabled = true
+
+[config.providers.mise]
+executable = "/bin/mise"
+prepare = [
+  { argv = ["install"], failure = "error" },
+]
+shellenv = { argv = ["env", "-s", "{shell}"], format = "shell", failure = "error" }
+
+[config.providers.devbox-global]
+executable = "/usr/local/share/mise/shims/devbox"
+shellenv = { argv = ["global", "shellenv"], format = "shell", failure = "ignore" }
+
+[config.providers.devbox-project]
+executable = "/usr/local/share/mise/shims/devbox"
+detect_files = ["devbox.json"]
+depends_on = ["mise"]
+prepare = [
+  { argv = ["install"], failure = "error" },
+]
+shellenv = { argv = ["shellenv"], format = "shell", failure = "error" }
+
+[config.providers.devbox-init]
+executable = "/usr/local/share/mise/shims/devbox"
+depends_on = ["devbox-project"]
+prepare = [
+  { argv = ["init"], when = "!workspace.config-present && workspace.writable && features.devbox.auto_init == 'if-missing'", failure = "warn" },
+]
+
+[inputs."DEVBOX_AUTO_INIT"]
+target = "features.devbox.auto_init"
+type = "enum"
+values = ["never", "if-missing", "ask"]
+aliases = { "0" = "never", "false" = "never", "1" = "if-missing", "true" = "if-missing" }
+runtime = true
+export_as = "DEVBOX_AUTO_INIT"
+
+[bootstrap]
+schema = 1
+mode = "strict"
+workspace_root = "/workspace"
+allow_workspace_overlay = false
+non_interactive = "deny"
+
+[[bootstrap.actions]]
+id = "data-root"
+kind = "filesystem.ensure_dir"
+path = "/data"
+mode = "1777"
+owner = "root"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "coding-config"
+kind = "filesystem.ensure_dir"
+path = "/data/coding-config"
+mode = "1777"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "devbox-data"
+kind = "filesystem.ensure_dir"
+path = "/data/devbox"
+mode = "1777"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "cargo-data"
+kind = "filesystem.ensure_dir"
+path = "/data/.cargo"
+mode = "1777"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "cargo-target"
+kind = "filesystem.ensure_dir"
+path = "/data/.cargo/target"
+mode = "1777"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "sccache-data"
+kind = "filesystem.ensure_dir"
+path = "/data/sccache"
+mode = "1777"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "home-config"
+kind = "filesystem.ensure_dir"
+path = "${identity.home}/.config"
+mode = "0755"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "home-local"
+kind = "filesystem.ensure_dir"
+path = "${identity.home}/.local"
+mode = "0755"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "home-cache"
+kind = "filesystem.ensure_dir"
+path = "${identity.home}/.cache"
+mode = "0755"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "home-cargo"
+kind = "filesystem.ensure_dir"
+path = "${identity.home}/.cargo"
+mode = "0755"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "claude-link"
+kind = "filesystem.ensure_symlink"
+link = "${identity.home}/.claude"
+target = "/data/coding-config/claude"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "codex-link"
+kind = "filesystem.ensure_symlink"
+link = "${identity.home}/.codex"
+target = "/data/coding-config/codex"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "gemini-link"
+kind = "filesystem.ensure_symlink"
+link = "${identity.home}/.gemini"
+target = "/data/coding-config/gemini"
+owner = "identity.target"
+run_as = "root"
+
+[[bootstrap.actions]]
+id = "opencode-link"
+kind = "filesystem.ensure_symlink"
+link = "${identity.home}/.config/opencode"
+target = "/data/coding-config/opencode"
+owner = "identity.target"
+run_as = "root"

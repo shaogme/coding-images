@@ -10,15 +10,19 @@
     "NET_ADMIN"
   ],
   "securityOpt": [
-    "seccomp=unconfined"
+    "seccomp=unconfined",
+    "label=disable"
   ],
   "containerEnv": {
-    "ROOT_PASSWORD": "root",
     "CARGO_INCREMENTAL": "0",
     "CARGO_TARGET_DIR": "/data/.cargo/target",
-    "RUSTC_WRAPPER": "sccache",
     "SCCACHE_DIR": "/data/sccache"
   },
+  "runArgs": [
+    "--device=/dev/fuse",
+    "--device=/dev/net/tun",
+    "--cgroupns=host"
+  ],
   "mounts": [
     "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",

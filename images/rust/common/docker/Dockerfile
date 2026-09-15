@@ -4,18 +4,18 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Set Rustup and PNPM environment variables for multi-user access
+# Build-time locations for mise-installed Rust and Node tools. The same values
+# are exported at runtime by .config/dev-env.toml.
 ENV RUSTUP_HOME=/usr/local/share/rustup \
     PNPM_HOME=/usr/local/share/pnpm \
     PATH=/usr/local/share/pnpm/bin:/usr/local/share/pnpm:$PATH
 
-# 1. Copy Rust & Node delta mise configuration into conf.d
 COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
+COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-rust.toml
 
 # Pre-install global Rust tools and toolchains with BuildKit cache mounts and lock toolchain
-RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
-    --mount=type=cache,id=tmp-build-${TARGETARCH},target=/tmp,sharing=shared \
-    set -e; \
+RUN set -e; \
+    if [ -r /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
@@ -37,6 +37,14 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     fi; \
     chmod -R 1777 /usr/local/share/rustup /usr/local/share/pnpm 2>/dev/null || true;
 
+RUN set -e; \
+    for shared_dir in /usr/local/share/mise /usr/local/share/rustup /usr/local/share/pnpm; do \
+        if [ -d "$shared_dir" ]; then \
+            chmod -R a+rwX "$shared_dir"; \
+            find "$shared_dir" -type d -exec chmod 0777 {} +; \
+        fi; \
+    done
+
 # Install rust debug tools
 RUN nix profile add \
     nixpkgs#valgrind \
@@ -46,10 +54,4 @@ RUN nix profile add \
     nixpkgs#perf \
     nixpkgs#elfutils
 
-# Configure default sccache compiler cache wrapper, cache directory, and incremental setting
-ENV RUSTC_WRAPPER=sccache \
-    SCCACHE_DIR=/data/sccache \
-    CARGO_INCREMENTAL=0
-
-# Default command passed to entrypoint (inherited from common base)
-CMD []
+RUN printf 'coding-images-rust\n' > /etc/dev-env/default-profile

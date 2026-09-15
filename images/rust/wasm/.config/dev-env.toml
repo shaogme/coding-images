@@ -1,0 +1,9 @@
+schema = 1
+id = "coding-images-rust-wasm"
+extends = ["coding-images-rust"]
+
+[config.environment.variables]
+FONTCONFIG_PATH = "/etc/fonts"
+FONTCONFIG_FILE = "/etc/fonts/fonts.conf"
+MOZ_HEADLESS = "1"
+LIBGL_ALWAYS_SOFTWARE = "1"

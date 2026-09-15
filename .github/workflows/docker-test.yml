@@ -1,0 +1,55 @@
+name: Docker Image Integration Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "images/**"
+      - "scripts/build_local.sh"
+      - ".github/workflows/docker-test.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "images/**"
+      - "scripts/build_local.sh"
+      - ".github/workflows/docker-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: common
+            test: images/common/tests/docker.sh
+          - target: podman
+            test: images/podman/tests/docker.sh
+          - target: npins-common
+            test: images/npins/common/tests/docker.sh
+          - target: npins-rust
+            test: images/npins/rust/tests/docker.sh
+          - target: rust-common
+            test: images/rust/common/tests/docker.sh
+          - target: rust-cross
+            test: images/rust/cross/tests/docker.sh
+          - target: rust-wasm
+            test: images/rust/wasm/tests/docker.sh
+          - target: qemu-common
+            test: images/qemu/common/tests/docker.sh
+          - target: qemu-rust-common
+            test: images/qemu/rust/common/tests/docker.sh
+          - target: qemu-rust-cross
+            test: images/qemu/rust/cross/tests/docker.sh
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@main
+
+      - name: Run build, deployment, and usability test
+        run: ${{ matrix.test }}

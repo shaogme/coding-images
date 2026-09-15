@@ -1,0 +1,20 @@
+schema = 1
+id = "coding-images-qemu-rust"
+extends = ["coding-images-qemu"]
+
+[config.environment.variables]
+RUSTUP_HOME = "/usr/local/share/rustup"
+PNPM_HOME = "/usr/local/share/pnpm"
+RUSTC_WRAPPER = "sccache"
+SCCACHE_DIR = "/data/sccache"
+SCCACHE_IGNORE_SERVER_IO_ERROR = "1"
+CARGO_INCREMENTAL = "0"
+
+[override."environment.path.append"]
+op = "append"
+values = ["/usr/local/share/pnpm/bin", "/usr/local/share/pnpm"]
+reason = "add the pnpm bin directories to the inherited runtime path"
+
+[config.features.sccache]
+enabled = true
+default_wrapper = "sccache"

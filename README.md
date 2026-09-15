@@ -21,7 +21,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
   - [10. qemu-rust-cross (QEMU + Rust 交叉编译与仿真运行环境)](#10-qemu-rust-cross-qemu--rust-交叉编译与仿真运行环境)
 - [镜像架构与设计机制](#镜像架构与设计机制)
   - [树状分层与 mise conf.d 模块化配置](#树状分层与-mise-confd-模块化配置)
-  - [统一智能 Entrypoint 引导流程](#统一智能-entrypoint-引导流程)
+  - [统一 container-init 与 dev-env 运行时](#统一-container-init-与-dev-env-运行时)
   - [容器开发模式与配置持久化](#容器开发模式与配置持久化)
 - [快速开始](#快速开始)
   - [使用 Docker 直接运行](#使用-docker-直接运行)
@@ -47,7 +47,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - **全自动 Devbox 深度集成**：内置 `devbox` 及其 shell 集成，配合预置系统级配置、统一数据持久化（`/data/devbox`）与自适应权限映射，容器启动或切换目录时自动探测、初始化（支持 `DEVBOX_AUTO_INIT`）与加载 `devbox.json` 环境，开箱即用。
 - **内置 AI 编程套件与统一存储**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），并通过统一数据卷与全局目录映射（`coding-config:/data/coding-config`）自动软链接汇聚 `~/.claude`、`~/.codex`、`~/.gemini` 与 `~/.config/opencode`，实现高内聚的一键凭证备份、迁移与跨镜像共享。
 - **标准化 Dev Containers 规范支持**：全量在各层级镜像中预置标准化 `.devcontainer/devcontainer.json` 配置，将安全能力（`cap_add`、`seccomp`）、环境变量及持久化挂载声明为通用工业标准，开箱即用无缝支持 VS Code、Cursor、Zed 等现代容器化 IDE。
-- **统一自适应 Entrypoint**：统一的入口引导脚本，自适应支持普通用户（`dev`）与 root 运行模式，不仅自动探测工作区内 9 种层级的 mise 配置文件，还自动初始化与加载 devbox 环境，自动建立 AI 配置软链接，子镜像零维护。
+- **统一运行时入口**：所有镜像使用 `/usr/bin/container-init run --`，以声明式 Bootstrap DSL 处理身份、目录和设备，再由 `/usr/bin/dev-env` 物化 mise、Devbox、sccache 与 shell 环境，子镜像无需维护入口脚本。
 - **完备的构建缓存优化**：Dockerfile 深度集成 BuildKit 缓存挂载（针对 Nix 缓存、mise 工具缓存、Cargo 依赖缓存等），显著加快构建与更新速度。
 
 ---
@@ -63,7 +63,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 flowchart TD
     Upstream["上游底座: ghcr.io/shaogme/nixos-dockers/mise:latest<br/>(NixOS + mise 基础系统)"]
     
-    Common["【层级 0】common<br/>• bubblewrap<br/>• Python + AI 编码工具套件<br/>• 通用 CLI (devbox, jq, ripgrep, gh)<br/>• 统一智能 entrypoint.sh"]
+    Common["【层级 0】common<br/>• bubblewrap<br/>• Python + AI 编码工具套件<br/>• 通用 CLI (devbox, jq, ripgrep, gh)<br/>• container-init + dev-env runtime"]
 
     Podman["【层级 1】podman<br/>• Podman (Daemonless 容器引擎)<br/>• crun / conmon<br/>• docker / docker-compose 伪装包装器"]
     
@@ -119,7 +119,7 @@ flowchart TD
 - **开发语言与运行时（mise）**：Python `latest`
 - **AI 辅助工具**：`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`
 - **通用与环境工具**：`devbox`、`jq`、`ripgrep`、`gh`（GitHub CLI）
-- **核心组件**：统一智能入口脚本 `/usr/local/bin/mise-entrypoint.sh`、Devbox 自动初始化与加载环境支持
+- **核心组件**：`container-init` Bootstrap runtime、`dev-env` environment materializer、声明式 Devbox 自动初始化与加载环境支持
 
 ### 2. podman (Podman 容器引擎环境)
 
@@ -128,10 +128,10 @@ flowchart TD
 - **镜像地址**：`ghcr.io/shaogme/coding-images/podman:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/common:latest`
 - **包含 common 的所有环境**，并额外增加：
-  - **系统包（Nix）**：`podman`、`crun`、`conmon`
-  - **Docker 命令透明伪装**：内置 `/usr/local/bin/docker` 与 `docker-compose` 包装脚本（透明转发至 Podman）及 `/var/run/docker.sock` 软链接，硬编码 `docker` 命令的工具无需修改即可直接运行
-  - **容器引擎配置**：预置 `/etc/containers/containers.conf`（`cgroupfs` 资源管理器、`file` 事件日志、`crun` 运行时）
-  - **Docker Compose 支持**：提供 `devices: [/dev/fuse, /dev/net/tun]`、`security_opt: [seccomp:unconfined, label:disable]` 与 `podman-containers` 独立命名卷持久化机制
+  - **系统包（Nix）**：`podman`、`crun`、`conmon`、`podman-compose`
+  - **Docker 命令与编排透明兼容**：通过 `dev-env` 声明式提供 `/usr/local/bin/docker` 与 `/usr/local/bin/docker-compose` 符号链接及 `/var/run/docker.sock` 软链接；完整支持 `docker compose`、`docker-compose`、`podman compose` 与 `podman-compose`
+  - **容器引擎配置**：预置 `/etc/containers/containers.conf`（`cgroupfs` 资源管理器、`file` 事件日志、`crun` 运行时、`podman-compose` 编排提供器）
+  - **单一卷持久化**：统一通过 `podman-containers:/var/lib/containers` 独立命名卷持久化容器及镜像；`dev-env` 自动建立软链接使 `root`（`/var/lib/containers/storage`）与 `dev`（`/var/lib/containers/dev/storage`）互不冲突地共用该单一卷持久化数据
 
 ### 3. npins-common (Nix/npins 通用环境)
 
@@ -314,38 +314,29 @@ flowchart TB
    - `30-cross.toml` -> 由 `rust-cross` 与 `qemu-rust-cross` 注入（继承并配置 `cross` 交叉编译工具）
 2. **全局版本锁定（Global Lockfile）**：各镜像在构建时通过 `mise lock --global` 固化当前工具链的确定性版本与 options/targets 元数据，杜绝 `nightly` 跨天版本漂移与 Target 继承丢失。
 
-### 统一智能 Entrypoint 引导流程
+### 统一 container-init 与 dev-env 运行时
 
-所有镜像统一使用 `common` 提供的 `/usr/local/bin/mise-entrypoint.sh`：
+所有镜像继承 NixOS Docker 的 Docker `Entrypoint`：
+`["/usr/bin/container-init", "run", "--"]`。
 
 ```mermaid
 flowchart TD
-    Start(["容器启动: mise-entrypoint.sh"]) --> ResolveUser["解析自适应 UID/GID & HOME<br/>动态配置 PATH 环境变量"]
-    ResolveUser --> CheckWs["进入工作区目录 /workspace"]
-    CheckWs --> DetectConfig{"探测工作区 mise 配置文件<br/>(9 级优先级匹配)"}
-
-    DetectConfig -- "命中工作区配置" --> TrustInstall["执行 mise trust --all<br/>执行 mise install 安装指定依赖"]
-    DetectConfig -- "未找到工作区配置" --> UseGlobal["使用全局模块化配置<br/>/etc/mise/conf.d/*.toml"]
-
-    TrustInstall --> ExportMise["执行 eval $(mise env -s bash)<br/>导出 mise 环境变量"]
-    UseGlobal --> ExportMise
-
-    ExportMise --> DetectDevbox{"检测/初始化 Devbox 配置<br/>(devbox.json 或 DEVBOX_AUTO_INIT)?"}
-    DetectDevbox -- "是" --> LoadDevbox["执行 devbox install 并运行<br/>eval $(devbox shellenv --init-hook)"]
-    DetectDevbox -- "否" --> ExecBase
-    LoadDevbox --> ExecBase(["转交控制权至基础底座 /bin/entrypoint.sh<br/>(执行自适应 UID/GID 映射并使用 su-exec 切换权限)"])
+    Start(["docker run / docker exec"])
+    Start --> Init["container-init<br/>Bootstrap DSL"]
+    Init --> Identity["解析 HOST_UID / HOST_GID / HOME<br/>执行目录、软链接、设备和 SSH action"]
+    Identity --> Materialize["dev-env<br/>合并 profile + input + workspace overlay"]
+    Materialize --> Providers["执行 mise / Devbox / sccache provider"]
+    Providers --> Handoff["exec command / shell / login-shell"]
 ```
 
-### Devbox 深度自动加载机制
+Bootstrap 和 environment 是两个独立 namespace：`container-init` 不包含 mise、Devbox、sccache 或 AI 工具分支；`dev-env` 不负责 UID/GID、SSH 或 root filesystem action。`/bin/bash` 是指向 `dev-env` 的兼容 shim，真实 Bash 保存在 `/usr/local/libexec/dev-env/real/bash`。
 
-1. **自动初始化与安装支持**：
-   - 若工作区存在 `devbox.json`，Entrypoint 启动时自动执行 `devbox install` 安装所需依赖包。
-   - 若配置了环境变量 `DEVBOX_AUTO_INIT=1`（或 `true`），当工作区缺少 `devbox.json` 时会自动执行 `devbox init` 生成模板并初始化项目。
-2. **全自动环境加载与导出**：
-   - **非交互式/守护进程/启动入口**：Entrypoint 通过 `devbox shellenv --init-hook` 直接将 Devbox 环境注入主进程上下文中，所有子进程透明继承。
-   - **交互式会话**（SSH、`docker exec`、VS Code 终端）：通过系统级 `/etc/bashrc` 全局激活全局 devbox 环境，并在进入项目目录时通过 Shell 钩子自动热切换与加载 Devbox 环境变量。
-3. **数据持久化与权限隔离**：
-   Devbox 全局数据与软件包统一持久化到 `/data/devbox`（由 `devbox-data` 卷挂载），并在启动阶段自适应修正属主权限，确保非 root 用户无权限问题。
+### Devbox 环境加载机制
+
+- 工作区存在 `devbox.json` 时，`devbox-project` provider 按声明执行 `install` 和 `shellenv`。
+- `DEVBOX_AUTO_INIT=1` 或 `true` 会将 `features.devbox.auto_init` 设为 `if-missing`，仅在工作区没有配置且可写时执行 `devbox init`。
+- `dev-env print`、`dev-env exec`、shell shim、SSH login shell 和 `docker exec ... dev-env` 都从同一 profile chain 重新物化环境。
+- Devbox 数据、Cargo target、sccache 和 AI 配置目录由 profile 的环境变量及 Bootstrap action 指向 `/data` 下的持久化卷。
 
 ### 容器开发模式与配置持久化
 
@@ -356,7 +347,7 @@ flowchart TD
 为了避免在 Compose 或容器运行参数中分别声明 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.config/opencode` 等多个分散的命名卷，Coding Images 实施统一的高内聚存储映射策略：
 
 1. **全局统一存储卷**：所有 AI 编程工具的会话状态、认证 Token 与配置文件全部汇聚持久化到单一命名数据卷 `coding-config:/data/coding-config`，devbox 数据与状态统一持久化至 `devbox-data:/data/devbox`。
-2. **启动自适应软链接**：容器启动时，入口脚本 `mise-entrypoint.sh` 自动在当前工作用户的主目录下创建指向 `/data/coding-config` 子目录的软链接：
+2. **启动自适应软链接**：`container-init` 按 derived Bootstrap profile 在当前目标用户的主目录下创建指向 `/data/coding-config` 子目录的软链接：
    - `${USER_HOME}/.claude` -> `/data/coding-config/claude`
    - `${USER_HOME}/.codex` -> `/data/coding-config/codex`
    - `${USER_HOME}/.gemini` -> `/data/coding-config/gemini`
@@ -433,12 +424,11 @@ docker run -it --rm \
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/rust-common:latest
   environment:
-    - ROOT_PASSWORD=root
+    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0}
     - HOST_UID=${HOST_UID:-1000:1000} # 自适应宿主机 UID/GID
     - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
     - CARGO_INCREMENTAL=0 # sccache 需关闭增量编译以生效缓存
     - CARGO_TARGET_DIR=/data/.cargo/target
-    - RUSTC_WRAPPER=sccache
     - SCCACHE_DIR=/data/sccache
     - SCCACHE_DISABLE=0 # 设为 1 或设置 ENABLE_SCCACHE=0 可显式关闭 sccache
   security_opt:
@@ -515,11 +505,6 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
   "securityOpt": [
     "seccomp=unconfined"
   ],
-  "containerEnv": {
-    "ROOT_PASSWORD": "root",
-    "CARGO_INCREMENTAL": "1",
-    "CARGO_TARGET_DIR": "/data/.cargo/target"
-  },
   "mounts": [
     "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
@@ -642,12 +627,14 @@ flowchart TD
 ├── images/
 │   ├── common/
 │   │   ├── .config/
-│   │   │   └── mise.toml            # common 基础与 devbox 工具 (10-common.toml)
+│   │   │   ├── mise.toml            # common 基础与 devbox 工具 (10-common.toml)
+│   │   │   └── dev-env.toml         # coding-images environment/bootstrap profile
 │   │   ├── .devcontainer/
 │   │   │   └── devcontainer.json    # common Dev Container 配置
 │   │   ├── docker/
 │   │   │   ├── Dockerfile           # common 构建规则 (FROM nixos-dockers/mise)
-│   │   │   └── entrypoint.sh        # 全局统一智能引导脚本 (Mise, Devbox & AI 凭证软链接)
+│   │   ├── tests/
+│   │   │   └── docker.sh            # common Docker 构建/部署/可用性测试
 │   │   └── docker-compose.yml
 │   ├── npins/
 │   │   ├── common/
@@ -673,8 +660,11 @@ flowchart TD
 │   │   │   ├── .devcontainer/
 │   │   │   │   └── devcontainer.json # qemu-common Dev Container 配置
 │   │   │   ├── docker/
-│   │   │   │   ├── Dockerfile       # qemu-common 构建规则 (FROM podman)
-│   │   │   │   └── entrypoint.sh    # QEMU /dev/kvm 设备节点权限与引导脚本
+│   │   │   │   └── Dockerfile       # qemu-common 构建规则 (FROM podman)
+│   │   │   ├── .config/
+│   │   │   │   └── dev-env.toml     # QEMU Bootstrap action profile
+│   │   │   ├── tests/
+│   │   │   │   └── docker.sh        # qemu-common Docker 可用性测试
 │   │   │   └── docker-compose.yml
 │   │   └── rust/
 │   │       ├── common/

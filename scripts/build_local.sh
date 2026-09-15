@@ -7,12 +7,15 @@ set -e
 # ==============================================================================
 
 REPO_PREFIX="${REPO_PREFIX:-ghcr.io/shaogme/coding-images}"
+BASE_IMAGE_OVERRIDE="${BASE_IMAGE_OVERRIDE:-}"
 TARGET="${1:-all}"
 
 echo "========================================================"
 echo "  Building Coding Images Locally (Target: ${TARGET})"
 echo "  Image Prefix: ${REPO_PREFIX}"
 echo "========================================================"
+
+declare -A BUILT_TARGETS=()
 
 build_image() {
     local img_name="$1"
@@ -39,59 +42,66 @@ build_image() {
     "${cmd[@]}"
 }
 
-case "$TARGET" in
-    common)
-        build_image "common" "images/common/docker/Dockerfile" "images/common" ""
-        ;;
-    podman)
-        build_image "podman" "images/podman/docker/Dockerfile" "images/podman" "${REPO_PREFIX}/common:latest"
-        ;;
-    rust-common)
-        build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/podman:latest"
-        ;;
-    qemu-common)
-        build_image "qemu-common" "images/qemu/common/docker/Dockerfile" "images/qemu/common" "${REPO_PREFIX}/podman:latest"
-        ;;
-    npins-common)
-        build_image "npins-common" "images/npins/common/docker/Dockerfile" "images/npins/common" "${REPO_PREFIX}/common:latest"
-        ;;
-    rust-wasm)
-        build_image "rust-wasm" "images/rust/wasm/docker/Dockerfile" "images/rust/wasm" "${REPO_PREFIX}/rust-common:latest"
-        ;;
-    rust-cross)
-        build_image "rust-cross" "images/rust/cross/docker/Dockerfile" "images/rust/cross" "${REPO_PREFIX}/rust-common:latest"
-        ;;
-    npins-rust)
-        build_image "npins-rust" "images/npins/rust/docker/Dockerfile" "images/npins/rust" "${REPO_PREFIX}/rust-common:latest"
-        ;;
-    qemu-rust-common)
-        build_image "qemu-rust-common" "images/qemu/rust/common/docker/Dockerfile" "images/qemu/rust/common" "${REPO_PREFIX}/qemu-common:latest"
-        ;;
-    qemu-rust-cross)
-        build_image "qemu-rust-cross" "images/qemu/rust/cross/docker/Dockerfile" "images/qemu/rust/cross" "${REPO_PREFIX}/qemu-rust-common:latest"
-        ;;
-    all|*)
-        echo "==> Stage 0: Building common base image..."
-        build_image "common" "images/common/docker/Dockerfile" "images/common" ""
+build_target() {
+    local target="$1"
+    if [[ "${BUILT_TARGETS[$target]:-}" == 1 ]]; then
+        return
+    fi
 
-        echo "==> Stage 1: Building podman & npins-common..."
-        build_image "podman" "images/podman/docker/Dockerfile" "images/podman" "${REPO_PREFIX}/common:latest"
-        build_image "npins-common" "images/npins/common/docker/Dockerfile" "images/npins/common" "${REPO_PREFIX}/common:latest"
+    case "$target" in
+        common)
+            build_image "common" "images/common/docker/Dockerfile" "images/common" "${BASE_IMAGE_OVERRIDE}"
+            ;;
+        podman)
+            build_target common
+            build_image "podman" "images/podman/docker/Dockerfile" "images/podman" "${REPO_PREFIX}/common:latest"
+            ;;
+        npins-common)
+            build_target common
+            build_image "npins-common" "images/npins/common/docker/Dockerfile" "images/npins/common" "${REPO_PREFIX}/common:latest"
+            ;;
+        rust-common)
+            build_target podman
+            build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/podman:latest"
+            ;;
+        qemu-common)
+            build_target podman
+            build_image "qemu-common" "images/qemu/common/docker/Dockerfile" "images/qemu/common" "${REPO_PREFIX}/podman:latest"
+            ;;
+        rust-wasm)
+            build_target rust-common
+            build_image "rust-wasm" "images/rust/wasm/docker/Dockerfile" "images/rust/wasm" "${REPO_PREFIX}/rust-common:latest"
+            ;;
+        rust-cross)
+            build_target rust-common
+            build_image "rust-cross" "images/rust/cross/docker/Dockerfile" "images/rust/cross" "${REPO_PREFIX}/rust-common:latest"
+            ;;
+        npins-rust)
+            build_target rust-common
+            build_image "npins-rust" "images/npins/rust/docker/Dockerfile" "images/npins/rust" "${REPO_PREFIX}/rust-common:latest"
+            ;;
+        qemu-rust-common)
+            build_target qemu-common
+            build_image "qemu-rust-common" "images/qemu/rust/common/docker/Dockerfile" "images/qemu/rust/common" "${REPO_PREFIX}/qemu-common:latest"
+            ;;
+        qemu-rust-cross)
+            build_target qemu-rust-common
+            build_image "qemu-rust-cross" "images/qemu/rust/cross/docker/Dockerfile" "images/qemu/rust/cross" "${REPO_PREFIX}/qemu-rust-common:latest"
+            ;;
+        all)
+            for target in common podman npins-common rust-common qemu-common rust-wasm rust-cross npins-rust qemu-rust-common qemu-rust-cross; do
+                build_target "$target"
+            done
+            ;;
+        *)
+            echo "Unknown target: $target" >&2
+            return 2
+            ;;
+    esac
+    BUILT_TARGETS[$target]=1
+}
 
-        echo "==> Stage 2: Building rust-common & qemu-common (based on podman)..."
-        build_image "rust-common" "images/rust/common/docker/Dockerfile" "images/rust/common" "${REPO_PREFIX}/podman:latest"
-        build_image "qemu-common" "images/qemu/common/docker/Dockerfile" "images/qemu/common" "${REPO_PREFIX}/podman:latest"
-
-        echo "==> Stage 3: Building rust-wasm, rust-cross, npins-rust & qemu-rust-common..."
-        build_image "rust-wasm" "images/rust/wasm/docker/Dockerfile" "images/rust/wasm" "${REPO_PREFIX}/rust-common:latest"
-        build_image "rust-cross" "images/rust/cross/docker/Dockerfile" "images/rust/cross" "${REPO_PREFIX}/rust-common:latest"
-        build_image "npins-rust" "images/npins/rust/docker/Dockerfile" "images/npins/rust" "${REPO_PREFIX}/rust-common:latest"
-        build_image "qemu-rust-common" "images/qemu/rust/common/docker/Dockerfile" "images/qemu/rust/common" "${REPO_PREFIX}/qemu-common:latest"
-
-        echo "==> Stage 4: Building qemu-rust-cross..."
-        build_image "qemu-rust-cross" "images/qemu/rust/cross/docker/Dockerfile" "images/qemu/rust/cross" "${REPO_PREFIX}/qemu-rust-common:latest"
-        ;;
-esac
+build_target "$TARGET"
 
 echo ""
 echo "========================================================"
