@@ -16,9 +16,9 @@ COPY .config/dev-env.toml /etc/dev-env/profiles.d/40-coding-images-qemu-rust.tom
 RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     set -e; \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
-    RUN_AS_ROOT=1 mise trust --all; \
-    RUN_AS_ROOT=1 mise lock --global --platform linux-x64,linux-arm64; \
-    RUN_AS_ROOT=1 mise install; \
+    mise trust --all; \
+    mise lock --global --platform linux-x64,linux-arm64; \
+    mise install; \
     TRIPLE=$(rustc -vV 2>/dev/null | sed -n 's/host: //p' || echo "$(uname -m)-unknown-linux-gnu"); \
     cd "${RUSTUP_HOME}/toolchains"; \
     LATEST_NIGHTLY=$(ls -d nightly-[0-9]* 2>/dev/null | sort -V | tail -n 1); \

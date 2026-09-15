@@ -11,6 +11,6 @@ COPY .config/mise.toml /etc/mise/conf.d/30-cross.toml
 RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     set -e; \
     echo "Pre-installing Rust cross-compilation tools during docker build..."; \
-    RUN_AS_ROOT=1 mise trust --all; \
-    RUN_AS_ROOT=1 mise lock --global --platform linux-x64,linux-arm64; \
-    RUN_AS_ROOT=1 mise install;
+    mise trust --all; \
+    mise lock --global --platform linux-x64,linux-arm64; \
+    mise install;

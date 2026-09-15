@@ -21,9 +21,9 @@ COPY .config/dev-env.toml /etc/dev-env/profiles.d/20-coding-images.toml
 # leaving the runtime RUN_AS_ROOT default unset.
 RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     set -e; \
-    RUN_AS_ROOT=1 mise trust --all; \
-    RUN_AS_ROOT=1 mise lock --global --platform linux-x64,linux-arm64; \
-    RUN_AS_ROOT=1 mise install; \
+    mise trust --all; \
+    mise lock --global --platform linux-x64,linux-arm64; \
+    mise install; \
     chmod -R 1777 /etc/mise /usr/local/share/mise; \
     chmod -R a+rwX /etc/mise
 

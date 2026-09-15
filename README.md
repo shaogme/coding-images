@@ -227,7 +227,7 @@ flowchart TD
     - `cargo-sweep`（构建产物清理工具）
   - **硬件加速与统一持久化**：
     - 预置 `/dev/kvm`、`/dev/net/tun`、`/dev/fuse` 节点支持与 `kvm` 用户组
-    - 支持 `qemu-data:/data/qemu`、`rust-target:/data/.cargo/target`、`sccache-cache:/data/sccache`、`podman-containers` 与统一 `coding-config`
+    - 支持 `qemu-data:/data/qemu`、`rust-target:/data/.cargo/target`、`cache:/data/cache`、`podman-containers` 与统一 `coding-config`
 
 ### 10. qemu-rust-cross (QEMU + Rust 交叉编译与仿真运行环境)
 
@@ -429,7 +429,7 @@ x-app-base: &app-base
     - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
     - CARGO_INCREMENTAL=0 # sccache 需关闭增量编译以生效缓存
     - CARGO_TARGET_DIR=/data/.cargo/target
-    - SCCACHE_DIR=/data/sccache
+    - SCCACHE_DIR=/data/cache/sccache
     - SCCACHE_DISABLE=0 # 设为 1 或设置 ENABLE_SCCACHE=0 可显式关闭 sccache
   security_opt:
     - seccomp:unconfined
@@ -455,8 +455,8 @@ services:
       # 持久化 Cargo 依赖与 Git 检出
       - cargo-registry:${CONTAINER_HOME:-/home/dev}/.cargo/registry
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
-      # 持久化 sccache 编译缓存
-      - sccache-cache:/data/sccache
+      # 持久化缓存
+      - cache:/data/cache
       # 持久化 Podman 容器与镜像
       - podman-containers:/var/lib/containers
       # 持久化 devbox 数据
@@ -468,7 +468,7 @@ volumes:
   rust-target:
   cargo-registry:
   cargo-git:
-  sccache-cache:
+  cache:
   podman-containers:
   devbox-data:
   coding-config:
