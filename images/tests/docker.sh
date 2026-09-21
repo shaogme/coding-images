@@ -200,11 +200,23 @@ fi
 
 echo "==> checking non-root identity handoff"
 docker_run --rm "$image" /bin/sh -c '
-    test "$HOME" = /home/dev
+    test "$HOME" = /home/user
     test "$USER" = dev
     test "$LOGNAME" = dev
     test "$(id -u)" = 1000
     test "$(id -g)" = 1000
+    test "$(stat -c %u:%g /home/user)" = "1000:1000"
+    test "$(stat -c %U /home/user)" = dev
+'
+
+echo "==> checking root identity handoff"
+docker_run --rm --env RUN_AS_ROOT=1 "$image" /bin/sh -c '
+    test "$HOME" = /home/user
+    test "$USER" = root
+    test "$(id -u)" = 0
+    test "$(id -g)" = 0
+    test "$(stat -c %u:%g /home/user)" = "0:0"
+    test "$(stat -c %U /home/user)" = root
 '
 
 echo "==> checking deployment and docker exec"
@@ -224,5 +236,6 @@ done
 
 docker exec "$container" /usr/bin/dev-env doctor --json | grep -Fq '"ok": true'
 docker exec "$container" /bin/bash -lc 'test -n "$PATH" && test -n "$NIX_PATH"'
+docker exec "$container" /bin/sh -c 'test "$(stat -c %u:%g /home/user)" = "0:0" && test "$(stat -c %U /home/user)" = root'
 
 echo "Docker test passed: ${image}"

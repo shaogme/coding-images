@@ -26,8 +26,8 @@
   },
   "mounts": [
     "source=rust-target,target=/data/.cargo/target,type=volume",
-    "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
-    "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
+    "source=cargo-registry,target=/home/user/.cargo/registry,type=volume",
+    "source=cargo-git,target=/home/user/.cargo/git,type=volume",
     "source=cache,target=/data/cache,type=volume",
     "source=podman-containers,target=/var/lib/containers,type=volume",
     "source=devbox-data,target=/data/devbox,type=volume",

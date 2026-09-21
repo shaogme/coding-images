@@ -386,15 +386,16 @@ flowchart LR
 ```
 
 > [!TIP]
-> **多用户家目录与自适应权限**：
-> 默认启动时，容器会自动使用普通开发用户（`dev`，UID/GID `1000:1000`）运行，持久化卷和软链接将根据自适应 UID/GID 自动授权。
+> **统一用户家目录与自适应权限**：
+> 容器统一使用 `/home/user` 作为默认 `$HOME`（无论运行身份为 root 还是非 root 开发用户）。
+> 启动时容器引导层（`container-init`）会自动无条件校准 `/home/user` 的所有权，确保当前运行身份始终拥有完全读写权限。
 > 若需切换为 root 身份运行，只需在启动时传入环境变量：
 >
 > ```bash
-> HOST_UID=0 CONTAINER_HOME=/root docker compose up -d
+> RUN_AS_ROOT=1 docker compose up -d
 > ```
 >
-> 卷与软链接将自动无缝重定向挂载至 `/root`，底层脚本 0 硬编码，所见即所得。
+> 持久化卷和缓存目录统一挂载至 `/home/user`，跨身份无缝共享，彻底消除身份切换导致的缓存失效与属主冲突。
 
 ---
 
@@ -427,7 +428,7 @@ x-app-base: &app-base
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
     - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
-    - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
+    - CONTAINER_HOME=${CONTAINER_HOME:-/home/user} # Unified container home path for root and non-root users
     - CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-0} # Disabled by default for sccache caching compatibility
     - CARGO_TARGET_DIR=/data/.cargo/target # Isolate Rust target directory to persistent data volume
     - SCCACHE_DIR=/data/cache/sccache # Directory for sccache compiler cache storage
@@ -456,8 +457,8 @@ services:
       # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
       - rust-target:/data/.cargo/target
       # Persist Cargo dependencies, crate index, and git checkouts
-      - cargo-registry:${CONTAINER_HOME:-/home/dev}/.cargo/registry
-      - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
+      - cargo-registry:${CONTAINER_HOME:-/home/user}/.cargo/registry
+      - cargo-git:${CONTAINER_HOME:-/home/user}/.cargo/git
       # Persist cache
       - cache:/data/cache
       # Persist Podman containers and cached container images
@@ -522,8 +523,8 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
   },
   "mounts": [
     "source=rust-target,target=/data/.cargo/target,type=volume",
-    "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
-    "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
+    "source=cargo-registry,target=/home/user/.cargo/registry,type=volume",
+    "source=cargo-git,target=/home/user/.cargo/git,type=volume",
     "source=cache,target=/data/cache,type=volume",
     "source=podman-containers,target=/var/lib/containers,type=volume",
     "source=devbox-data,target=/data/devbox,type=volume",

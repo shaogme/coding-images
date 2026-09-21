@@ -4,7 +4,7 @@ x-app-base: &app-base
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
     - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
-    - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
+    - CONTAINER_HOME=${CONTAINER_HOME:-/home/user} # Unified container home path for root and non-root users
   cap_add:
     - SYS_ADMIN
     - NET_ADMIN
