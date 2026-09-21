@@ -96,7 +96,6 @@ fi
 if [[ "$target" == podman ]]; then
     echo "==> checking podman and docker execution with bridge and host networks (root user)"
     root_output="$(docker run --rm --privileged \
-        --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
         --env RUN_AS_ROOT=1 \
         "$image" /bin/bash -c '
@@ -113,7 +112,6 @@ if [[ "$target" == podman ]]; then
 
     echo "==> checking podman and docker execution with bridge and host networks (dev user)"
     dev_output="$(docker run --rm --privileged \
-        --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
         "$image" /bin/bash -c '
             set -e
@@ -129,7 +127,6 @@ if [[ "$target" == podman ]]; then
 
     echo "==> checking compose tooling (docker compose, docker-compose, podman compose, podman-compose) under root"
     root_compose_output="$(docker run --rm --privileged \
-        --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
         --env RUN_AS_ROOT=1 \
         "$image" /bin/bash -c '
@@ -156,7 +153,6 @@ COMPOSE
 
     echo "==> checking compose tooling (docker compose, docker-compose, podman compose, podman-compose) under dev"
     dev_compose_output="$(docker run --rm --privileged \
-        --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
         "$image" /bin/bash -c '
             set -e
@@ -184,13 +180,11 @@ COMPOSE
     vol_name="test-podman-vol-${RANDOM}"
     docker volume create "$vol_name" >/dev/null
     docker run --rm --privileged \
-        --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
         --env RUN_AS_ROOT=1 \
         -v "$vol_name:/var/lib/containers" \
         "$image" podman run --rm docker.io/library/alpine:latest echo "vol-root-ok" | grep -Fq "vol-root-ok"
     docker run --rm --privileged \
-        --cgroupns=host \
         --device /dev/fuse --device /dev/net/tun \
         -v "$vol_name:/var/lib/containers" \
         "$image" podman run --rm docker.io/library/alpine:latest echo "vol-dev-ok" | grep -Fq "vol-dev-ok"

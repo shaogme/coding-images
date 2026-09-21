@@ -423,6 +423,7 @@ docker run -it --rm \
 # Base configuration for the application
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/rust-common:latest
+  privileged: true
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0}
     - HOST_UID # 显式设置为 host_uid[:host_gid]；未设置时自动使用已挂载 workspace 的属主

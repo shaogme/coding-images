@@ -15,8 +15,7 @@
   ],
   "runArgs": [
     "--device=/dev/fuse",
-    "--device=/dev/net/tun",
-    "--cgroupns=host"
+    "--device=/dev/net/tun"
   ],
   "mounts": [
     "source=podman-containers,target=/var/lib/containers,type=volume",

@@ -75,3 +75,9 @@ target = "/run/podman/podman.sock"
 owner = "identity.target"
 run_as = "root"
 depends_on = ["run-podman"]
+
+[[bootstrap.actions]]
+id = "cgroup-init"
+kind = "cgroup.v2_init"
+run_as = "root"
+

@@ -20,8 +20,7 @@
   },
   "runArgs": [
     "--device=/dev/fuse",
-    "--device=/dev/net/tun",
-    "--cgroupns=host"
+    "--device=/dev/net/tun"
   ],
   "mounts": [
     "source=rust-target,target=/data/.cargo/target,type=volume",

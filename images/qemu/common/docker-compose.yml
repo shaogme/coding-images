@@ -1,11 +1,11 @@
 # Base configuration for the application
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/qemu-common:latest
+  privileged: true
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
     - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
     - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
-  cgroup: host # Share host cgroup namespace for in-container container execution
   security_opt:
     - seccomp:unconfined # Required for VM execution and trace
     - label:disable # Disable SELinux labeling separation for containers

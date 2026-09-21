@@ -16,8 +16,7 @@
   "runArgs": [
     "--device=/dev/kvm",
     "--device=/dev/net/tun",
-    "--device=/dev/fuse",
-    "--cgroupns=host"
+    "--device=/dev/fuse"
   ],
   "mounts": [
     "source=qemu-data,target=/data/qemu,type=volume",
