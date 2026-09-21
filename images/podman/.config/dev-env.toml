@@ -79,5 +79,5 @@ depends_on = ["run-podman"]
 [[bootstrap.actions]]
 id = "cgroup-init"
 kind = "cgroup.v2_init"
+mount_mode = "bind_mount"
 run_as = "root"
-
