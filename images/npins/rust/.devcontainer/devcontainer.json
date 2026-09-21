@@ -6,12 +6,13 @@
   "remoteUser": "dev",
   "capAdd": [
     "SYS_ADMIN",
-    "SYS_PTRACE",
-    "NET_ADMIN"
+    "NET_ADMIN",
+    "SYS_PTRACE"
   ],
   "securityOpt": [
     "seccomp=unconfined",
-    "label=disable"
+    "apparmor=unconfined",
+    "systempaths=unconfined"
   ],
   "containerEnv": {
     "CARGO_INCREMENTAL": "0",

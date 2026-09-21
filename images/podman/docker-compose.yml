@@ -1,18 +1,16 @@
 # Base configuration for the application
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/podman:latest
-  privileged: true
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
     - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
     - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
-  security_opt:
-    - seccomp:unconfined # Required for inner container execution and trace
-    - label:disable # Disable SELinux labeling separation for containers
   cap_add:
     - SYS_ADMIN
-    - SYS_PTRACE
     - NET_ADMIN
+  security_opt:
+    - seccomp:unconfined
+    - apparmor:unconfined
   devices:
     - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
     - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
@@ -28,6 +26,8 @@ services:
       - .:/workspace
       # Persist Podman containers and cached container images
       - podman-containers:/var/lib/containers
+      # Persist cache
+      - cache:/data/cache
       # Persist devbox data
       - devbox-data:/data/devbox
       # Persist unified AI credentials and tool configurations
@@ -35,5 +35,6 @@ services:
 
 volumes:
   podman-containers:
+  cache:
   devbox-data:
   coding-config:

@@ -411,7 +411,8 @@ docker run -it --rm \
   -v coding-config:/data/coding-config \
   --cap-add=SYS_ADMIN \
   --cap-add=SYS_PTRACE \
-  --cap-add=NET_ADMIN \
+  --security-opt apparmor=unconfined \
+  --security-opt seccomp=unconfined \
   ghcr.io/shaogme/coding-images/rust-wasm:latest bash
 ```
 
@@ -423,46 +424,47 @@ docker run -it --rm \
 # Base configuration for the application
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/rust-common:latest
-  privileged: true
   environment:
-    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0}
-    - HOST_UID # 显式设置为 host_uid[:host_gid]；未设置时自动使用已挂载 workspace 的属主
-    - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # 默认为 /home/dev，root 模式可覆写为 /root
-    - CARGO_INCREMENTAL=0 # sccache 需关闭增量编译以生效缓存
-    - CARGO_TARGET_DIR=/data/.cargo/target
-    - SCCACHE_DIR=/data/cache/sccache
-    - SCCACHE_DISABLE=0 # 设为 1 或设置 ENABLE_SCCACHE=0 可显式关闭 sccache
+    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
+    - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
+    - CONTAINER_HOME=${CONTAINER_HOME:-/home/dev} # Default to /home/dev, override with /root for root user
+    - CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-0} # Disabled by default for sccache caching compatibility
+    - CARGO_TARGET_DIR=/data/.cargo/target # Isolate Rust target directory to persistent data volume
+    - SCCACHE_DIR=/data/cache/sccache # Directory for sccache compiler cache storage
+    - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0} # Set to 1 to explicitly disable sccache
   security_opt:
     - seccomp:unconfined
-    - label:disable
+    - apparmor:unconfined
+    - systempaths:unconfined
   cap_add:
     - SYS_ADMIN
-    - SYS_PTRACE
     - NET_ADMIN
+    - SYS_PTRACE
   devices:
-    - /dev/fuse:/dev/fuse
-    - /dev/net/tun:/dev/net/tun
+    - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
+    - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
   tty: true
 
 services:
+  # Develop mode: Mounts local directory for hot-reloading (Default)
   dev:
     <<: *app-base
     container_name: rust-common-dev
     volumes:
-      # 挂载宿主机源码
+      # Mount host source code
       - .:/workspace
-      # 独立命名卷隔离 Rust 编译产物
+      # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
       - rust-target:/data/.cargo/target
-      # 持久化 Cargo 依赖与 Git 检出
+      # Persist Cargo dependencies, crate index, and git checkouts
       - cargo-registry:${CONTAINER_HOME:-/home/dev}/.cargo/registry
       - cargo-git:${CONTAINER_HOME:-/home/dev}/.cargo/git
-      # 持久化缓存
+      # Persist cache
       - cache:/data/cache
-      # 持久化 Podman 容器与镜像
+      # Persist Podman containers and cached container images
       - podman-containers:/var/lib/containers
-      # 持久化 devbox 数据
+      # Persist devbox data
       - devbox-data:/data/devbox
-      # 统一持久化所有 AI 工具配置与会话状态
+      # Persist unified AI credentials and tool configurations
       - coding-config:/data/coding-config
 
 volumes:
@@ -473,6 +475,7 @@ volumes:
   podman-containers:
   devbox-data:
   coding-config:
+
 ```
 
 启动并进入开发环境：
@@ -500,16 +503,29 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
   "remoteUser": "dev",
   "capAdd": [
     "SYS_ADMIN",
-    "SYS_PTRACE",
-    "NET_ADMIN"
+    "NET_ADMIN",
+    "SYS_PTRACE"
   ],
   "securityOpt": [
-    "seccomp=unconfined"
+    "seccomp=unconfined",
+    "apparmor=unconfined",
+    "systempaths=unconfined"
   ],
+  "runArgs": [
+    "--device=/dev/fuse",
+    "--device=/dev/net/tun"
+  ],
+  "containerEnv": {
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TARGET_DIR": "/data/.cargo/target",
+    "SCCACHE_DIR": "/data/cache/sccache"
+  },
   "mounts": [
     "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo-registry,target=/home/dev/.cargo/registry,type=volume",
     "source=cargo-git,target=/home/dev/.cargo/git,type=volume",
+    "source=cache,target=/data/cache,type=volume",
+    "source=podman-containers,target=/var/lib/containers,type=volume",
     "source=devbox-data,target=/data/devbox,type=volume",
     "source=coding-config,target=/data/coding-config,type=volume"
   ],
@@ -527,6 +543,7 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
     }
   }
 }
+
 ```
 
 #### 使用步骤

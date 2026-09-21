@@ -23,6 +23,17 @@ trap cleanup EXIT
 command -v docker >/dev/null
 command -v bash >/dev/null
 
+docker_run() {
+    docker run \
+        --cap-add=SYS_ADMIN \
+        --cap-add=NET_ADMIN \
+        --security-opt apparmor=unconfined \
+        --security-opt seccomp=unconfined \
+        --security-opt systempaths=unconfined \
+        --device /dev/fuse --device /dev/net/tun \
+        "$@"
+}
+
 echo "==> building ${image} and its local ancestors"
 REPO_PREFIX="$repo_prefix" "$repo_root/scripts/build_local.sh" "$target"
 
@@ -33,7 +44,7 @@ entrypoint="$(docker image inspect --format '{{json .Config.Entrypoint}}' "$imag
     exit 1
 }
 
-docker run --rm --entrypoint /bin/sh "$image" -c '
+docker_run --rm --entrypoint /bin/sh "$image" -c '
     test ! -e /bin/entrypoint.sh
     test ! -e /usr/local/bin/mise-entrypoint.sh
     test -x /usr/bin/container-init
@@ -42,17 +53,19 @@ docker run --rm --entrypoint /bin/sh "$image" -c '
 '
 
 echo "==> checking the image tool through the default handoff"
-tool_output="$(docker run --rm --env RUN_AS_ROOT=1 "$image" /bin/sh -c "command -v ${required_command} && ${required_command} --version" 2>&1)" || {
+tool_output="$(docker_run --rm \
+        --env RUN_AS_ROOT=1 \
+        "$image" /bin/sh -c "command -v ${required_command} && ${required_command} --version" 2>&1)" || {
     echo "$tool_output" >&2
     exit 1
 }
 grep -F "$required_command" <<<"$tool_output"
 
 echo "==> checking the resolved environment and bootstrap plan"
-plan="$(docker run --rm --entrypoint /usr/bin/container-init "$image" plan --json)"
+plan="$(docker_run --rm --entrypoint /usr/bin/container-init "$image" plan --json)"
 grep -Fq '"actions"' <<<"$plan"
 grep -Fq '"handoff"' <<<"$plan"
-environment="$(docker run --rm --entrypoint /usr/bin/dev-env "$image" print --format json)"
+environment="$(docker_run --rm --entrypoint /usr/bin/dev-env "$image" print --format json)"
 grep -Fq '"PATH"' <<<"$environment"
 grep -Fq '"NIX_PATH"' <<<"$environment"
 
@@ -63,7 +76,7 @@ if [[ "$target" == rust-common ]]; then
     grep -Fq '"SCCACHE_DIR"' <<<"$environment"
 
     echo "==> checking Compose-compatible sccache disable inputs"
-    disabled_environment="$(docker run --rm \
+    disabled_environment="$(docker_run --rm \
         --env SCCACHE_DISABLE=1 \
         --env ENABLE_SCCACHE=1 \
         --entrypoint /usr/bin/dev-env \
@@ -73,7 +86,7 @@ if [[ "$target" == rust-common ]]; then
         exit 1
     fi
 
-    legacy_disabled_environment="$(docker run --rm \
+    legacy_disabled_environment="$(docker_run --rm \
         --env ENABLE_SCCACHE=0 \
         --entrypoint /usr/bin/dev-env \
         "$image" print --format json)"
@@ -82,7 +95,7 @@ if [[ "$target" == rust-common ]]; then
         exit 1
     fi
 
-    overridden_environment="$(docker run --rm \
+    overridden_environment="$(docker_run --rm \
         --env CARGO_INCREMENTAL=1 \
         --env CARGO_TARGET_DIR=/tmp/rust-target \
         --env SCCACHE_DIR=/tmp/sccache \
@@ -95,8 +108,7 @@ fi
 
 if [[ "$target" == podman ]]; then
     echo "==> checking podman and docker execution with bridge and host networks (root user)"
-    root_output="$(docker run --rm --privileged \
-        --device /dev/fuse --device /dev/net/tun \
+    root_output="$(docker_run --rm \
         --env RUN_AS_ROOT=1 \
         "$image" /bin/bash -c '
             set -e
@@ -111,8 +123,7 @@ if [[ "$target" == podman ]]; then
     grep -Fq "root-docker-host-ok" <<<"$root_output"
 
     echo "==> checking podman and docker execution with bridge and host networks (dev user)"
-    dev_output="$(docker run --rm --privileged \
-        --device /dev/fuse --device /dev/net/tun \
+    dev_output="$(docker_run --rm \
         "$image" /bin/bash -c '
             set -e
             podman run --rm docker.io/library/alpine:latest echo "dev-podman-bridge-ok"
@@ -126,8 +137,7 @@ if [[ "$target" == podman ]]; then
     grep -Fq "dev-docker-host-ok" <<<"$dev_output"
 
     echo "==> checking compose tooling (docker compose, docker-compose, podman compose, podman-compose) under root"
-    root_compose_output="$(docker run --rm --privileged \
-        --device /dev/fuse --device /dev/net/tun \
+    root_compose_output="$(docker_run --rm \
         --env RUN_AS_ROOT=1 \
         "$image" /bin/bash -c '
             set -e
@@ -152,8 +162,7 @@ COMPOSE
     grep -Fq "compose-root-ok" <<<"$root_compose_output"
 
     echo "==> checking compose tooling (docker compose, docker-compose, podman compose, podman-compose) under dev"
-    dev_compose_output="$(docker run --rm --privileged \
-        --device /dev/fuse --device /dev/net/tun \
+    dev_compose_output="$(docker_run --rm \
         "$image" /bin/bash -c '
             set -e
             workdir="$(mktemp -d -p /tmp)"
@@ -179,20 +188,18 @@ COMPOSE
     echo "==> checking single volume persistence for root and dev"
     vol_name="test-podman-vol-${RANDOM}"
     docker volume create "$vol_name" >/dev/null
-    docker run --rm --privileged \
-        --device /dev/fuse --device /dev/net/tun \
+    docker_run --rm \
         --env RUN_AS_ROOT=1 \
         -v "$vol_name:/var/lib/containers" \
         "$image" podman run --rm docker.io/library/alpine:latest echo "vol-root-ok" | grep -Fq "vol-root-ok"
-    docker run --rm --privileged \
-        --device /dev/fuse --device /dev/net/tun \
+    docker_run --rm \
         -v "$vol_name:/var/lib/containers" \
         "$image" podman run --rm docker.io/library/alpine:latest echo "vol-dev-ok" | grep -Fq "vol-dev-ok"
     docker volume rm -f "$vol_name" >/dev/null
 fi
 
 echo "==> checking non-root identity handoff"
-docker run --rm "$image" /bin/sh -c '
+docker_run --rm "$image" /bin/sh -c '
     test "$HOME" = /home/dev
     test "$USER" = dev
     test "$LOGNAME" = dev
@@ -201,7 +208,7 @@ docker run --rm "$image" /bin/sh -c '
 '
 
 echo "==> checking deployment and docker exec"
-docker run --detach --name "$container" --env RUN_AS_ROOT=1 "$image" /bin/sh -c 'sleep 30' >/dev/null
+docker_run --detach --name "$container" --env RUN_AS_ROOT=1 "$image" /bin/sh -c 'sleep 30' >/dev/null
 for _ in {1..30}; do
     state="$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || true)"
     case "$state" in

@@ -1,7 +1,6 @@
 # Base configuration for the application
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/npins-rust:latest
-  privileged: true
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
     - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
@@ -11,12 +10,13 @@ x-app-base: &app-base
     - SCCACHE_DIR=/data/cache/sccache # Directory for sccache compiler cache storage
     - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0} # Set to 1 to explicitly disable sccache (also supports ENABLE_SCCACHE=0)
   security_opt:
-    - seccomp:unconfined # Required for inner container execution and trace
-    - label:disable # Disable SELinux labeling separation for containers
+    - seccomp:unconfined
+    - apparmor:unconfined
+    - systempaths:unconfined
   cap_add:
     - SYS_ADMIN
-    - SYS_PTRACE
     - NET_ADMIN
+    - SYS_PTRACE
   devices:
     - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
     - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
