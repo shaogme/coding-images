@@ -13,7 +13,7 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
 
 RUN nix profile add nixpkgs#bubblewrap
 
-RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise
+RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise /data/cache/mise
 COPY .config/mise.toml /etc/mise/conf.d/10-common.toml
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/20-coding-images.toml
 
@@ -25,8 +25,8 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install; \
-    chmod -R 1777 /etc/mise /usr/local/share/mise; \
-    chmod -R a+rwX /etc/mise
+    chmod -R 1777 /etc/mise /usr/local/share/mise /data/cache/mise; \
+    chmod -R a+rwX /etc/mise /data/cache/mise
 
 # The derived profile adds the coding-images providers and bootstrap actions.
 RUN printf 'coding-images\n' > /etc/dev-env/default-profile
