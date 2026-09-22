@@ -29,6 +29,11 @@ sccache = {
     depends = ["cargo-binstall"],
 }
 
+"cargo:cargo-edit" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
 "cargo:cargo-sweep" = {
     version = "latest",
     depends = ["cargo-binstall"],
