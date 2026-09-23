@@ -26,4 +26,4 @@ RUN { \
         echo 'compose_providers = ["/nix/var/nix/profiles/default/bin/podman-compose", "podman-compose"]'; \
     } > /etc/containers/containers.conf
 
-RUN printf 'coding-images-podman\n' > /etc/dev-env/default-profile
+RUN rm -f /etc/dev-env/default-profile && printf 'coding-images-podman\n' > /etc/dev-env/default-profile

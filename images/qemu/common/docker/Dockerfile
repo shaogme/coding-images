@@ -38,4 +38,4 @@ RUN set -e; \
     # Shared permissions for VM storage
     chmod 1777 /data/qemu
 
-RUN printf 'coding-images-qemu\n' > /etc/dev-env/default-profile
+RUN rm -f /etc/dev-env/default-profile && printf 'coding-images-qemu\n' > /etc/dev-env/default-profile

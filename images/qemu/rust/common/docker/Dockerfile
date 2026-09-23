@@ -57,4 +57,4 @@ RUN nix profile add \
     nixpkgs#perf \
     nixpkgs#elfutils
 
-RUN printf 'coding-images-qemu-rust\n' > /etc/dev-env/default-profile
+RUN rm -f /etc/dev-env/default-profile && printf 'coding-images-qemu-rust\n' > /etc/dev-env/default-profile

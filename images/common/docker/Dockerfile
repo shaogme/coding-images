@@ -29,4 +29,4 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     chmod -R a+rwX /etc/mise /data/cache/mise
 
 # The derived profile adds the coding-images providers and bootstrap actions.
-RUN printf 'coding-images\n' > /etc/dev-env/default-profile
+RUN rm -f /etc/dev-env/default-profile && printf 'coding-images\n' > /etc/dev-env/default-profile

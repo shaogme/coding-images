@@ -60,4 +60,4 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
     mise lock --global --platform linux-x64,linux-arm64; \
     mise install;
 
-RUN printf 'coding-images-rust-wasm\n' > /etc/dev-env/default-profile
+RUN rm -f /etc/dev-env/default-profile && printf 'coding-images-rust-wasm\n' > /etc/dev-env/default-profile
