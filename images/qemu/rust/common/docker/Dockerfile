@@ -1,5 +1,12 @@
+ARG NIXOS_DOCKERS_VERSION=latest
 ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/qemu-common:latest
-FROM ${BASE_IMAGE}
+ARG BUILDER_IMAGE=ghcr.io/shaogme/nixos-dockers/mise-builder:${NIXOS_DOCKERS_VERSION}
+
+FROM ${BASE_IMAGE} AS runtime-base
+RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise \
+    /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
+
+FROM ${BUILDER_IMAGE} AS mise-tools
 ARG TARGETARCH
 
 WORKDIR /workspace
@@ -12,12 +19,16 @@ ENV RUSTUP_HOME=/usr/local/share/rustup \
     PNPM_HOME=/usr/local/share/pnpm \
     PATH=/usr/local/share/cargo/bin:/usr/local/share/pnpm/bin:/usr/local/share/pnpm:$PATH
 
-COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
-COPY .config/dev-env.toml /etc/dev-env/profiles.d/40-coding-images-qemu-rust.toml
+RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise \
+    /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
 
-# Pre-install global Rust tools and toolchains with BuildKit cache mounts and lock toolchain
+COPY --from=runtime-base /etc/mise /etc/mise
+COPY --from=runtime-base /usr/local/share/mise /usr/local/share/mise
+COPY --from=runtime-base /data/cache/mise /data/cache/mise
+COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
+
 RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
-    set -e; \
+    set -eu; \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
@@ -39,6 +50,20 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
         exit 1; \
     fi; \
     chmod -R 1777 /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm 2>/dev/null || true;
+
+FROM runtime-base
+ARG TARGETARCH
+
+WORKDIR /workspace
+
+COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
+COPY .config/dev-env.toml /etc/dev-env/profiles.d/40-coding-images-qemu-rust.toml
+COPY --from=mise-tools /etc/mise /etc/mise
+COPY --from=mise-tools /usr/local/share/mise /usr/local/share/mise
+COPY --from=mise-tools /data/cache/mise /data/cache/mise
+COPY --from=mise-tools /usr/local/share/rustup /usr/local/share/rustup
+COPY --from=mise-tools /usr/local/share/cargo /usr/local/share/cargo
+COPY --from=mise-tools /usr/local/share/pnpm /usr/local/share/pnpm
 
 RUN set -e; \
     for shared_dir in /usr/local/share/mise /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm; do \

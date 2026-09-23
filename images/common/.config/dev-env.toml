@@ -92,7 +92,7 @@ id = "coding-config"
 kind = "filesystem.ensure_dir"
 path = "/data/coding-config"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["data-root"]
 
@@ -101,7 +101,7 @@ id = "claude-config"
 kind = "filesystem.ensure_dir"
 path = "/data/coding-config/claude"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["coding-config"]
 
@@ -110,7 +110,7 @@ id = "codex-config"
 kind = "filesystem.ensure_dir"
 path = "/data/coding-config/codex"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["coding-config"]
 
@@ -119,7 +119,7 @@ id = "gemini-config"
 kind = "filesystem.ensure_dir"
 path = "/data/coding-config/gemini"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["coding-config"]
 
@@ -128,7 +128,7 @@ id = "opencode-config"
 kind = "filesystem.ensure_dir"
 path = "/data/coding-config/opencode"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["coding-config"]
 
@@ -137,7 +137,7 @@ id = "cache"
 kind = "filesystem.ensure_dir"
 path = "/data/cache"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["data-root"]
 
@@ -146,7 +146,7 @@ id = "devbox-data"
 kind = "filesystem.ensure_dir"
 path = "/data/devbox"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["data-root"]
 
@@ -155,7 +155,7 @@ id = "cargo-data"
 kind = "filesystem.ensure_dir"
 path = "/data/.cargo"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["data-root"]
 
@@ -164,7 +164,7 @@ id = "cargo-target"
 kind = "filesystem.ensure_dir"
 path = "/data/.cargo/target"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["cargo-data"]
 
@@ -173,7 +173,7 @@ id = "sccache-cache"
 kind = "filesystem.ensure_dir"
 path = "/data/cache/sccache"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["cache"]
 
@@ -182,74 +182,74 @@ id = "mise-cache"
 kind = "filesystem.ensure_dir"
 path = "/data/cache/mise"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["cache"]
 
 [[bootstrap.actions]]
 id = "home-config"
 kind = "filesystem.ensure_dir"
-path = "${identity.home}/.config"
-mode = "0755"
-owner = "identity.target"
+path = "/home/user/.config"
+mode = "1777"
+owner = "root"
 run_as = "root"
 
 [[bootstrap.actions]]
 id = "home-local"
 kind = "filesystem.ensure_dir"
-path = "${identity.home}/.local"
-mode = "0755"
-owner = "identity.target"
+path = "/home/user/.local"
+mode = "1777"
+owner = "root"
 run_as = "root"
 
 [[bootstrap.actions]]
 id = "home-cache"
 kind = "filesystem.ensure_dir"
-path = "${identity.home}/.cache"
-mode = "0755"
-owner = "identity.target"
+path = "/home/user/.cache"
+mode = "1777"
+owner = "root"
 run_as = "root"
 
 [[bootstrap.actions]]
 id = "home-cargo"
 kind = "filesystem.ensure_dir"
-path = "${identity.home}/.cargo"
-mode = "0755"
-owner = "identity.target"
+path = "/home/user/.cargo"
+mode = "1777"
+owner = "root"
 run_as = "root"
 
 [[bootstrap.actions]]
 id = "claude-link"
 kind = "filesystem.ensure_symlink"
-link = "${identity.home}/.claude"
+link = "/home/user/.claude"
 target = "/data/coding-config/claude"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["claude-config"]
 
 [[bootstrap.actions]]
 id = "codex-link"
 kind = "filesystem.ensure_symlink"
-link = "${identity.home}/.codex"
+link = "/home/user/.codex"
 target = "/data/coding-config/codex"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["codex-config"]
 
 [[bootstrap.actions]]
 id = "gemini-link"
 kind = "filesystem.ensure_symlink"
-link = "${identity.home}/.gemini"
+link = "/home/user/.gemini"
 target = "/data/coding-config/gemini"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["gemini-config"]
 
 [[bootstrap.actions]]
 id = "opencode-link"
 kind = "filesystem.ensure_symlink"
-link = "${identity.home}/.config/opencode"
+link = "/home/user/.config/opencode"
 target = "/data/coding-config/opencode"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["opencode-config"]

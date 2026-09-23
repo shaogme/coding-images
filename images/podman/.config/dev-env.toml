@@ -46,7 +46,7 @@ id = "containers-dev"
 kind = "filesystem.ensure_dir"
 path = "/var/lib/containers/dev"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["var-lib-containers"]
 
@@ -55,7 +55,7 @@ id = "containers-data-symlink"
 kind = "filesystem.ensure_symlink"
 link = "/data/containers"
 target = "/var/lib/containers/dev"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["containers-dev"]
 
@@ -64,7 +64,7 @@ id = "run-podman"
 kind = "filesystem.ensure_dir"
 path = "/run/podman"
 mode = "1777"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 
 [[bootstrap.actions]]
@@ -72,7 +72,7 @@ id = "docker-sock-link"
 kind = "filesystem.ensure_symlink"
 link = "/var/run/docker.sock"
 target = "/run/podman/podman.sock"
-owner = "identity.target"
+owner = "root"
 run_as = "root"
 depends_on = ["run-podman"]
 

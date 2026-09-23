@@ -48,7 +48,8 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - **内置 AI 编程套件与统一存储**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），并通过统一数据卷与全局目录映射（`coding-config:/data/coding-config`）自动软链接汇聚 `~/.claude`、`~/.codex`、`~/.gemini` 与 `~/.config/opencode`，实现高内聚的一键凭证备份、迁移与跨镜像共享。
 - **标准化 Dev Containers 规范支持**：全量在各层级镜像中预置标准化 `.devcontainer/devcontainer.json` 配置，将安全能力（`cap_add`、`seccomp`）、环境变量及持久化挂载声明为通用工业标准，开箱即用无缝支持 VS Code、Cursor、Zed 等现代容器化 IDE。
 - **统一运行时入口**：所有镜像使用 `/usr/bin/container-init run --`，以声明式 Bootstrap DSL 处理身份、目录和设备，再由 `/usr/bin/dev-env` 物化 mise、Devbox、sccache 与 shell 环境，子镜像无需维护入口脚本。
-- **完备的构建缓存优化**：Dockerfile 深度集成 BuildKit 缓存挂载（针对 Nix 缓存、mise 工具缓存、Cargo 依赖缓存等），显著加快构建与更新速度。
+- **独立的 Mise 构建阶段**：需要预装工具的镜像使用同版本 `nixos-dockers/mise-builder` 生成缓存，再复制到 runtime；运行时镜像不会把 `container-init` 的 Bash shim 当作构建 shell。
+- **明确的构建产物边界**：只复制 `/etc/mise`、`/usr/local/share/mise`、`/data/cache/mise` 以及 Rust 工具链的显式目录，不复制 builder 的 root 配置、临时文件或构建凭据。
 
 ---
 
@@ -61,7 +62,8 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 
 ```mermaid
 flowchart TD
-    Upstream["上游底座: ghcr.io/shaogme/nixos-dockers/mise:latest<br/>(NixOS + mise 基础系统)"]
+    Upstream["上游 runtime: ghcr.io/shaogme/nixos-dockers/mise:latest<br/>(NixOS + mise + container-init)"]
+    Builder["上游 builder: ghcr.io/shaogme/nixos-dockers/mise-builder:latest<br/>(NixOS + mise + real Bash)"]
     
     Common["【层级 0】common<br/>• bubblewrap<br/>• Python + AI 编码工具套件<br/>• 通用 CLI (devbox, jq, ripgrep, gh)<br/>• container-init + dev-env runtime"]
 
@@ -84,6 +86,7 @@ flowchart TD
     QemuRustCross["【层级 4】qemu-rust-cross<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild<br/>• QEMU 全套虚拟机与仿真运行环境<br/>• 结合 Podman + QEMU 跨架构调试与验证"]
 
     Upstream --> Common
+    Builder -.->|Mise lock/install| Common
     Common --> Podman
     Common --> NpinsCommon
     Podman --> RustCommon
@@ -115,11 +118,15 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/common:latest`
 - **基础镜像**：`ghcr.io/shaogme/nixos-dockers/mise:latest`
+- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`（仅用于 `mise lock/install`）
 - **系统包（Nix）**：`bubblewrap`（沙箱隔离支持）
 - **开发语言与运行时（mise）**：Python `latest`
 - **AI 辅助工具**：`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`
 - **通用与环境工具**：`devbox`、`jq`、`ripgrep`、`gh`（GitHub CLI）
 - **核心组件**：`container-init` Bootstrap runtime、`dev-env` environment materializer、声明式 Devbox 自动初始化与加载环境支持
+
+`common` 的全局工具由 builder stage 安装后复制到 runtime。`mise-builder` 本身不包含
+`container-init`、`dev-env` 或运行时 Bash shim，不能作为开发容器直接运行。
 
 ### 2. podman (Podman 容器引擎环境)
 
@@ -147,6 +154,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/podman:latest`
+- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
 - **包含 podman 的所有环境**（具备开箱即用的 Podman 容器运行时），并额外增加：
   - **开发语言与运行时（mise）**：
     - Rust: `stable`（包含 `rust-src` 源码组件）
@@ -193,6 +201,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-wasm:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
+- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
 - **包含 rust-common 的所有环境**，并额外增加：
   - **系统包（Nix）**：`fontconfig`、`dejavu_fonts`、`mesa`、`firefox`、`geckodriver`
   - **Rust 交叉编译 Target**：`wasm32-unknown-unknown`（针对 `stable` 和 `nightly`）
@@ -205,6 +214,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-cross:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
+- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
 - **包含 rust-common 的所有环境**（直接继承底层 Podman 容器引擎），并额外增加：
   - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
   - **轻量解耦设计**：Podman、运行时配置与 Docker 透明伪装已由基础层 `podman` / `rust-common` 提供，`rust-cross` 聚焦于跨平台编译工具链本身，杜绝重复安装
@@ -216,6 +226,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-rust-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/qemu-common:latest`
+- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
 - **包含 qemu-common 的所有环境**（具备开箱即用的 QEMU 全套组件、OVMF 固件、swtpm、KVM 硬件加速与 Podman 容器运行时），并额外增加：
   - **开发语言与运行时（mise）**：
     - Rust: `stable`（包含 `rust-src` 源码组件）
@@ -235,6 +246,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-rust-cross:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/qemu-rust-common:latest`
+- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
 - **包含 qemu-rust-common 的所有环境**（具备 QEMU 仿真环境、KVM 加速、Rust 编译器套件与 Podman 引擎），并额外增加：
   - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
   - **cross 运行时引擎指定**：预置 `CROSS_CONTAINER_ENGINE=podman`
@@ -576,6 +588,40 @@ images/rust/wasm/
 └── docker-compose.yml    # 本地容器编排配置
 ```
 
+### Mise builder/runtime 分离
+
+凡是需要在 Docker 构建阶段执行 `mise trust`、`mise lock` 或 `mise install` 的镜像，
+都必须把这些命令放在独立的 builder stage。builder 和 runtime 使用同一个
+`NIXOS_DOCKERS_VERSION`，并且只复制明确的工具目录：
+
+```dockerfile
+ARG NIXOS_DOCKERS_VERSION=latest
+ARG BASE_IMAGE=ghcr.io/shaogme/nixos-dockers/mise:${NIXOS_DOCKERS_VERSION}
+ARG BUILDER_IMAGE=ghcr.io/shaogme/nixos-dockers/mise-builder:${NIXOS_DOCKERS_VERSION}
+
+FROM ${BASE_IMAGE} AS runtime-base
+RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise
+
+FROM ${BUILDER_IMAGE} AS mise-tools
+COPY --from=runtime-base /etc/mise /etc/mise
+COPY .config/mise.toml /etc/mise/conf.d/10-project.toml
+RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+    set -eu; \
+    mise trust --all; \
+    mise lock --global --platform linux-x64,linux-arm64; \
+    mise install; \
+    chmod -R a+rwX /etc/mise /usr/local/share/mise /data/cache/mise
+
+FROM runtime-base
+COPY --from=mise-tools /etc/mise /etc/mise
+COPY --from=mise-tools /usr/local/share/mise /usr/local/share/mise
+COPY --from=mise-tools /data/cache/mise /data/cache/mise
+```
+
+不要在 `FROM .../mise`、`FROM .../rust-common` 等 runtime stage 中执行 Mise 安装，
+也不要复制 builder 的 `/root`、`/tmp` 或完整 `/usr/local`。builder 只服务于构建，
+最终镜像仍由 runtime 的 `container-init` entrypoint 提供身份和 shell handoff。
+
 ### 镜像自动发现脚本
 
 ```bash
@@ -599,6 +645,9 @@ python3 scripts/discover_images.py --format matrix
 
 # 单独构建指定镜像（如 rust-wasm、qemu-rust-cross）
 ./scripts/build_local.sh rust-wasm
+
+# 使用固定的上游 runtime/builder 版本构建，避免两个 tag 在构建期间漂移
+NIXOS_DOCKERS_VERSION=2026.8.24 ./scripts/build_local.sh common
 ```
 
 ---
@@ -618,7 +667,7 @@ flowchart TD
     Stage3 --> Stage4["阶段六: Stage 4 (Layer 4)<br/>构建基于 qemu-rust-common 的 qemu-rust-cross 并发布"]
 ```
 
-1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建，合并推送 Multi-Arch Manifest。
+1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建；其 builder stage 使用同版本的 `nixos-dockers/mise-builder`。
 2. **Stage 1 (Layer 1)**：并行构建基于 `common` 的 `podman` 与 `npins-common`。
 3. **Stage 2 (Layer 2)**：并行构建基于 `podman` 的 `rust-common` 与 `qemu-common`。
 4. **Stage 3 (Layer 3)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross`、`npins-rust` 与基于 `qemu-common` 的 `qemu-rust-common`。
@@ -630,6 +679,7 @@ flowchart TD
 - `<YYYYMMDD>`：按构建日期打标（例如 `20260829`）。
 - `sha-<commit_sha>`：关联特定的 Git commit（例如 `sha-a1b2c3d`）。
 - `<extra_tag>`（可选）：手动触发时指定的自定义标签。
+- `nixos_dockers_version`：手动构建时固定上游 `mise` 与 `mise-builder` 的共同版本；生产构建应使用不可变版本 tag，而不是让 runtime 和 builder 分别跟随不同的 `latest`。
 
 ---
 
@@ -651,7 +701,7 @@ flowchart TD
 │   │   ├── .devcontainer/
 │   │   │   └── devcontainer.json    # common Dev Container 配置
 │   │   ├── docker/
-│   │   │   ├── Dockerfile           # common 构建规则 (FROM nixos-dockers/mise)
+│   │   │   ├── Dockerfile           # common 多阶段构建规则 (mise-builder -> nixos-dockers/mise)
 │   │   ├── tests/
 │   │   │   └── docker.sh            # common Docker 构建/部署/可用性测试
 │   │   └── docker-compose.yml

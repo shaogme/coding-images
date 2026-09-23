@@ -23,6 +23,11 @@ on:
         required: false
         default: ''
         type: string
+      nixos_dockers_version:
+        description: 'Immutable NixOS Docker base tag shared by runtime and builder stages'
+        required: false
+        default: 'latest'
+        type: string
 
   # Automatically trigger on push to main branch when images or workflow change
   push:
@@ -62,6 +67,7 @@ jobs:
       has_stage_4: ${{ steps.set-matrix.outputs.has_stage_4 }}
       should_push: ${{ steps.set-params.outputs.should_push }}
       extra_tag: ${{ steps.set-params.outputs.extra_tag }}
+      nixos_dockers_version: ${{ steps.set-params.outputs.nixos_dockers_version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@main
@@ -72,9 +78,11 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "should_push=${{ inputs.push }}" >> $GITHUB_OUTPUT
             echo "extra_tag=${{ inputs.extra_tag }}" >> $GITHUB_OUTPUT
+            echo "nixos_dockers_version=${{ inputs.nixos_dockers_version }}" >> $GITHUB_OUTPUT
           else
             echo "should_push=true" >> $GITHUB_OUTPUT
             echo "extra_tag=" >> $GITHUB_OUTPUT
+            echo "nixos_dockers_version=latest" >> $GITHUB_OUTPUT
           fi
 
       - name: Scan images directory and group stages
@@ -102,6 +110,7 @@ jobs:
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
   # --------------------------------------------------------------------------
@@ -122,6 +131,7 @@ jobs:
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
   # --------------------------------------------------------------------------
@@ -142,6 +152,7 @@ jobs:
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
   # --------------------------------------------------------------------------
@@ -162,6 +173,7 @@ jobs:
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
   # --------------------------------------------------------------------------
@@ -182,5 +194,5 @@ jobs:
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
-
