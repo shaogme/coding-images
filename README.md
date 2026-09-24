@@ -364,7 +364,7 @@ Bootstrap 和 environment 是两个独立 namespace：`container-init` 不包含
    - `${USER_HOME}/.codex` -> `/data/coding-config/codex`
    - `${USER_HOME}/.gemini` -> `/data/coding-config/gemini`
    - `${USER_HOME}/.config/opencode` -> `/data/coding-config/opencode`
-3. **备份与共享内聚**：开发者只需挂载或备份统一的数据卷（`coding-config`、`devbox-data`），即可完成环境状态保留与跨容器共享。devbox 数据路径通过全局环境变量 `XDG_DATA_HOME=/data` 直接读写 `/data/devbox`，完全独立于用户家目录且无需软链接。
+3. **备份与共享内聚**：开发者只需挂载或备份统一的数据卷（`coding-config`、`devbox-data`、`cargo`），即可完成环境状态保留与跨容器共享。devbox 数据路径通过全局环境变量 `XDG_DATA_HOME=/data` 直接读写 `/data/devbox`；Cargo registry 和 git checkout 统一位于 `/data/cargo`，分别从两个 HOME 的 `.cargo` 目录链接过去。
 
 ```mermaid
 flowchart LR
@@ -375,7 +375,7 @@ flowchart LR
     subgraph Volumes["持久化 Docker 卷"]
         V0[("devbox-data")]
         VAI[("coding-config<br/>(统一 AI 数据卷)")]
-        VRust[("rust-target / cargo-*")]
+        VRust[("rust-target / cargo")]
     end
 
     subgraph DevContainer["开发容器 (dev / root 模式)"]
@@ -399,15 +399,15 @@ flowchart LR
 
 > [!TIP]
 > **统一用户家目录与自适应权限**：
-> 容器统一使用 `/home/user` 作为默认 `$HOME`（无论运行身份为 root 还是非 root 开发用户）。
-> 启动时容器引导层（`container-init`）会自动无条件校准 `/home/user` 的所有权，确保当前运行身份始终拥有完全读写权限。
+> 非 root 开发用户使用 `/home/dev`，root 使用 `/root` 作为 `$HOME`。
+> 启动时容器引导层（`container-init`）会按当前身份校准对应 HOME 及其私有目录的所有权和权限。
 > 若需切换为 root 身份运行，只需在启动时传入环境变量：
 >
 > ```bash
 > RUN_AS_ROOT=1 docker compose up -d
 > ```
 >
-> 持久化卷和缓存目录统一挂载至 `/home/user`，跨身份无缝共享，彻底消除身份切换导致的缓存失效与属主冲突。
+> Codex、Claude、Gemini 和 OpenCode 配置在两个 HOME 下保持相同的共享链接；需要共享的持久化卷分别挂载到 `/home/dev` 和 `/root`。
 
 ---
 
@@ -440,7 +440,6 @@ x-app-base: &app-base
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
     - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
-    - CONTAINER_HOME=${CONTAINER_HOME:-/home/user} # Unified container home path for root and non-root users
     - CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-0} # Disabled by default for sccache caching compatibility
     - CARGO_TARGET_DIR=/data/.cargo/target # Isolate Rust target directory to persistent data volume
     - SCCACHE_DIR=/data/cache/sccache # Directory for sccache compiler cache storage
@@ -469,8 +468,7 @@ services:
       # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
       - rust-target:/data/.cargo/target
       # Persist Cargo dependencies, crate index, and git checkouts
-      - cargo-registry:${CONTAINER_HOME:-/home/user}/.cargo/registry
-      - cargo-git:${CONTAINER_HOME:-/home/user}/.cargo/git
+      - cargo:/data/cargo
       # Persist cache
       - cache:/data/cache
       # Persist Podman containers and cached container images
@@ -482,8 +480,7 @@ services:
 
 volumes:
   rust-target:
-  cargo-registry:
-  cargo-git:
+  cargo:
   cache:
   podman-containers:
   devbox-data:
@@ -535,8 +532,7 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
   },
   "mounts": [
     "source=rust-target,target=/data/.cargo/target,type=volume",
-    "source=cargo-registry,target=/home/user/.cargo/registry,type=volume",
-    "source=cargo-git,target=/home/user/.cargo/git,type=volume",
+    "source=cargo,target=/data/cargo,type=volume",
     "source=cache,target=/data/cache,type=volume",
     "source=podman-containers,target=/var/lib/containers,type=volume",
     "source=devbox-data,target=/data/devbox,type=volume",

@@ -204,23 +204,40 @@ fi
 
 echo "==> checking non-root identity handoff"
 docker_run --rm "$image" /bin/sh -c '
-    test "$HOME" = /home/user
+    test "$HOME" = /home/dev
     test "$USER" = dev
     test "$LOGNAME" = dev
     test "$(id -u)" = 1000
     test "$(id -g)" = 1000
-    test "$(stat -c %u:%g /home/user)" = "1000:1000"
-    test "$(stat -c %U /home/user)" = dev
+    test "$(stat -c %u:%g /home/dev)" = "1000:1000"
+    test "$(stat -c %U /home/dev)" = dev
+    for directory in .config .local .cache .cargo; do
+        test "$(stat -c %a "/home/dev/$directory")" = 700
+        test "$(stat -c %u:%g "/home/dev/$directory")" = "1000:1000"
+    done
+    test "$(readlink /home/dev/.codex)" = /data/coding-config/codex
+    test "$(readlink /home/dev/.config/opencode)" = /data/coding-config/opencode
+    test "$(readlink /home/dev/.cargo/registry)" = /data/cargo/registry
+    test "$(readlink /home/dev/.cargo/git)" = /data/cargo/git
 '
 
 echo "==> checking root identity handoff"
 docker_run --rm --env RUN_AS_ROOT=1 "$image" /bin/sh -c '
-    test "$HOME" = /home/user
+    test "$HOME" = /root
     test "$USER" = root
     test "$(id -u)" = 0
     test "$(id -g)" = 0
-    test "$(stat -c %u:%g /home/user)" = "0:0"
-    test "$(stat -c %U /home/user)" = root
+    test "$(stat -c %u:%g /root)" = "0:0"
+    test "$(stat -c %U /root)" = root
+    test "$(stat -c %a /root)" = 700
+    for directory in .config .local .cache .cargo; do
+        test "$(stat -c %a "/root/$directory")" = 700
+        test "$(stat -c %u:%g "/root/$directory")" = "0:0"
+    done
+    test "$(readlink /root/.codex)" = /data/coding-config/codex
+    test "$(readlink /root/.config/opencode)" = /data/coding-config/opencode
+    test "$(readlink /root/.cargo/registry)" = /data/cargo/registry
+    test "$(readlink /root/.cargo/git)" = /data/cargo/git
 '
 
 echo "==> checking deployment and docker exec"
@@ -240,6 +257,6 @@ done
 
 docker exec "$container" /usr/bin/dev-env doctor --json | grep -Fq '"ok": true'
 docker exec "$container" /bin/bash -lc 'test -n "$PATH" && test -n "$NIX_PATH"'
-docker exec "$container" /bin/sh -c 'test "$(stat -c %u:%g /home/user)" = "0:0" && test "$(stat -c %U /home/user)" = root'
+docker exec "$container" /bin/sh -c 'test "$(stat -c %u:%g /root)" = "0:0" && test "$(stat -c %U /root)" = root'
 
 echo "Docker test passed: ${image}"

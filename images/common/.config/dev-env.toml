@@ -153,11 +153,29 @@ depends_on = ["data-root"]
 [[bootstrap.actions]]
 id = "cargo-data"
 kind = "filesystem.ensure_dir"
-path = "/data/.cargo"
+path = "/data/cargo"
 mode = "1777"
 owner = "root"
 run_as = "root"
 depends_on = ["data-root"]
+
+[[bootstrap.actions]]
+id = "cargo-registry"
+kind = "filesystem.ensure_dir"
+path = "/data/cargo/registry"
+mode = "1777"
+owner = "root"
+run_as = "root"
+depends_on = ["cargo-data"]
+
+[[bootstrap.actions]]
+id = "cargo-git"
+kind = "filesystem.ensure_dir"
+path = "/data/cargo/git"
+mode = "1777"
+owner = "root"
+run_as = "root"
+depends_on = ["cargo-data"]
 
 [[bootstrap.actions]]
 id = "cargo-target"
@@ -166,7 +184,7 @@ path = "/data/.cargo/target"
 mode = "1777"
 owner = "root"
 run_as = "root"
-depends_on = ["cargo-data"]
+depends_on = ["data-root"]
 
 [[bootstrap.actions]]
 id = "sccache-cache"
@@ -186,70 +204,153 @@ owner = "root"
 run_as = "root"
 depends_on = ["cache"]
 
+# HOME child directories are identity actions so root and dev receive separate
+# ownership and permissions whenever container-init reconciles the identity.
 [[bootstrap.actions]]
 id = "home-config"
-kind = "filesystem.ensure_dir"
-path = "/home/user/.config"
-mode = "1777"
-owner = "root"
+kind = "identity.ensure_home"
+path = "${identity.home}/.config"
+mode = "0700"
+owner = "identity.target"
 run_as = "root"
 
 [[bootstrap.actions]]
 id = "home-local"
-kind = "filesystem.ensure_dir"
-path = "/home/user/.local"
-mode = "1777"
-owner = "root"
+kind = "identity.ensure_home"
+path = "${identity.home}/.local"
+mode = "0700"
+owner = "identity.target"
 run_as = "root"
 
 [[bootstrap.actions]]
 id = "home-cache"
-kind = "filesystem.ensure_dir"
-path = "/home/user/.cache"
-mode = "1777"
-owner = "root"
+kind = "identity.ensure_home"
+path = "${identity.home}/.cache"
+mode = "0700"
+owner = "identity.target"
 run_as = "root"
 
 [[bootstrap.actions]]
 id = "home-cargo"
-kind = "filesystem.ensure_dir"
-path = "/home/user/.cargo"
-mode = "1777"
-owner = "root"
+kind = "identity.ensure_home"
+path = "${identity.home}/.cargo"
+mode = "0700"
+owner = "identity.target"
 run_as = "root"
 
 [[bootstrap.actions]]
-id = "claude-link"
+id = "cargo-registry-link-dev"
 kind = "filesystem.ensure_symlink"
-link = "/home/user/.claude"
+link = "/home/dev/.cargo/registry"
+target = "/data/cargo/registry"
+parent_mode = "0700"
+owner = "root"
+run_as = "root"
+depends_on = ["home-cargo", "cargo-registry"]
+
+[[bootstrap.actions]]
+id = "cargo-registry-link-root"
+kind = "filesystem.ensure_symlink"
+link = "/root/.cargo/registry"
+target = "/data/cargo/registry"
+parent_mode = "0700"
+owner = "root"
+run_as = "root"
+depends_on = ["home-cargo", "cargo-registry"]
+
+[[bootstrap.actions]]
+id = "cargo-git-link-dev"
+kind = "filesystem.ensure_symlink"
+link = "/home/dev/.cargo/git"
+target = "/data/cargo/git"
+parent_mode = "0700"
+owner = "root"
+run_as = "root"
+depends_on = ["home-cargo", "cargo-git"]
+
+[[bootstrap.actions]]
+id = "cargo-git-link-root"
+kind = "filesystem.ensure_symlink"
+link = "/root/.cargo/git"
+target = "/data/cargo/git"
+parent_mode = "0700"
+owner = "root"
+run_as = "root"
+depends_on = ["home-cargo", "cargo-git"]
+
+# Keep the tool configuration shared while keeping the two HOME trees
+# independent. Materialize both fixed HOME trees on every bootstrap so a
+# later identity switch can use the same links without a second setup phase.
+[[bootstrap.actions]]
+id = "claude-link-dev"
+kind = "filesystem.ensure_symlink"
+link = "/home/dev/.claude"
 target = "/data/coding-config/claude"
 owner = "root"
 run_as = "root"
 depends_on = ["claude-config"]
 
 [[bootstrap.actions]]
-id = "codex-link"
+id = "claude-link-root"
 kind = "filesystem.ensure_symlink"
-link = "/home/user/.codex"
+link = "/root/.claude"
+target = "/data/coding-config/claude"
+owner = "root"
+run_as = "root"
+depends_on = ["claude-config"]
+
+[[bootstrap.actions]]
+id = "codex-link-dev"
+kind = "filesystem.ensure_symlink"
+link = "/home/dev/.codex"
 target = "/data/coding-config/codex"
 owner = "root"
 run_as = "root"
 depends_on = ["codex-config"]
 
 [[bootstrap.actions]]
-id = "gemini-link"
+id = "codex-link-root"
 kind = "filesystem.ensure_symlink"
-link = "/home/user/.gemini"
+link = "/root/.codex"
+target = "/data/coding-config/codex"
+owner = "root"
+run_as = "root"
+depends_on = ["codex-config"]
+
+[[bootstrap.actions]]
+id = "gemini-link-dev"
+kind = "filesystem.ensure_symlink"
+link = "/home/dev/.gemini"
 target = "/data/coding-config/gemini"
 owner = "root"
 run_as = "root"
 depends_on = ["gemini-config"]
 
 [[bootstrap.actions]]
-id = "opencode-link"
+id = "gemini-link-root"
 kind = "filesystem.ensure_symlink"
-link = "/home/user/.config/opencode"
-target = "/data/coding-config/opencode"
+link = "/root/.gemini"
+target = "/data/coding-config/gemini"
 owner = "root"
 run_as = "root"
-depends_on = ["opencode-config"]
+depends_on = ["gemini-config"]
+
+[[bootstrap.actions]]
+id = "opencode-link-dev"
+kind = "filesystem.ensure_symlink"
+link = "/home/dev/.config/opencode"
+target = "/data/coding-config/opencode"
+parent_mode = "0700"
+owner = "root"
+run_as = "root"
+depends_on = ["home-config", "opencode-config"]
+
+[[bootstrap.actions]]
+id = "opencode-link-root"
+kind = "filesystem.ensure_symlink"
+link = "/root/.config/opencode"
+target = "/data/coding-config/opencode"
+parent_mode = "0700"
+owner = "root"
+run_as = "root"
+depends_on = ["home-config", "opencode-config"]
