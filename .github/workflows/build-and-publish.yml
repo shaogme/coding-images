@@ -93,10 +93,10 @@ jobs:
           python3 scripts/discover_images.py --target "${TARGET_IMAGE}" --github-output "${GITHUB_OUTPUT}"
 
   # --------------------------------------------------------------------------
-  # 2. Stage 0: Base image (common)
+  # 2. Stage 0: Build architecture archives, then merge and publish the base image
   # --------------------------------------------------------------------------
   build-stage-0:
-    name: Stage 0
+    name: Stage 0 - Build & Publish
     needs: discover-images
     if: needs.discover-images.outputs.has_stage_0 == 'true'
     strategy:
@@ -107,17 +107,23 @@ jobs:
       image_name: ${{ matrix.image_name }}
       context: ${{ matrix.context }}
       dockerfile: ${{ matrix.dockerfile }}
+      runtime_parent: ${{ matrix.runtime_parent }}
+      builder_parent: ${{ matrix.builder_parent }}
+      builder_parent_tag: ${{ matrix.builder_parent_tag }}
+      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
+      builder_mode: ${{ matrix.builder_mode }}
+      build_closure: ${{ matrix.build_closure }}
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
-      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
   # --------------------------------------------------------------------------
-  # 3. Stage 1: Layer 1 images based on common (podman, npins-common)
+  # 3. Stage 1: Build, archive, merge, and publish images based on common
   # --------------------------------------------------------------------------
   build-stage-1:
-    name: Stage 1
+    name: Stage 1 - Build & Publish
     needs: [discover-images, build-stage-0]
     if: always() && needs.discover-images.outputs.has_stage_1 == 'true' && (needs.build-stage-0.result == 'success' || needs.discover-images.outputs.has_stage_0 != 'true')
     strategy:
@@ -128,17 +134,23 @@ jobs:
       image_name: ${{ matrix.image_name }}
       context: ${{ matrix.context }}
       dockerfile: ${{ matrix.dockerfile }}
+      runtime_parent: ${{ matrix.runtime_parent }}
+      builder_parent: ${{ matrix.builder_parent }}
+      builder_parent_tag: ${{ matrix.builder_parent_tag }}
+      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
+      builder_mode: ${{ matrix.builder_mode }}
+      build_closure: ${{ matrix.build_closure }}
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
-      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
   # --------------------------------------------------------------------------
-  # 4. Stage 2: Layer 2 images based on podman (rust-common, qemu-common)
+  # 4. Stage 2: Build, archive, merge, and publish images based on stage 1
   # --------------------------------------------------------------------------
   build-stage-2:
-    name: Stage 2
+    name: Stage 2 - Build & Publish
     needs: [discover-images, build-stage-1]
     if: always() && needs.discover-images.outputs.has_stage_2 == 'true' && (needs.build-stage-1.result == 'success' || needs.discover-images.outputs.has_stage_1 != 'true')
     strategy:
@@ -149,17 +161,23 @@ jobs:
       image_name: ${{ matrix.image_name }}
       context: ${{ matrix.context }}
       dockerfile: ${{ matrix.dockerfile }}
+      runtime_parent: ${{ matrix.runtime_parent }}
+      builder_parent: ${{ matrix.builder_parent }}
+      builder_parent_tag: ${{ matrix.builder_parent_tag }}
+      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
+      builder_mode: ${{ matrix.builder_mode }}
+      build_closure: ${{ matrix.build_closure }}
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
-      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
   # --------------------------------------------------------------------------
-  # 5. Stage 3: Layer 3 images based on rust-common & qemu-common
+  # 5. Stage 3: Build, archive, merge, and publish images based on stage 2
   # --------------------------------------------------------------------------
   build-stage-3:
-    name: Stage 3
+    name: Stage 3 - Build & Publish
     needs: [discover-images, build-stage-2]
     if: always() && needs.discover-images.outputs.has_stage_3 == 'true' && (needs.build-stage-2.result == 'success' || needs.discover-images.outputs.has_stage_2 != 'true')
     strategy:
@@ -170,17 +188,23 @@ jobs:
       image_name: ${{ matrix.image_name }}
       context: ${{ matrix.context }}
       dockerfile: ${{ matrix.dockerfile }}
+      runtime_parent: ${{ matrix.runtime_parent }}
+      builder_parent: ${{ matrix.builder_parent }}
+      builder_parent_tag: ${{ matrix.builder_parent_tag }}
+      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
+      builder_mode: ${{ matrix.builder_mode }}
+      build_closure: ${{ matrix.build_closure }}
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
-      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
   # --------------------------------------------------------------------------
-  # 6. Stage 4: Layer 4 images based on qemu-rust-common (qemu-rust-cross)
+  # 6. Stage 4: Build, archive, merge, and publish images based on stage 3
   # --------------------------------------------------------------------------
   build-stage-4:
-    name: Stage 4
+    name: Stage 4 - Build & Publish
     needs: [discover-images, build-stage-3]
     if: always() && needs.discover-images.outputs.has_stage_4 == 'true' && (needs.build-stage-3.result == 'success' || needs.discover-images.outputs.has_stage_3 != 'true')
     strategy:
@@ -191,8 +215,14 @@ jobs:
       image_name: ${{ matrix.image_name }}
       context: ${{ matrix.context }}
       dockerfile: ${{ matrix.dockerfile }}
+      runtime_parent: ${{ matrix.runtime_parent }}
+      builder_parent: ${{ matrix.builder_parent }}
+      builder_parent_tag: ${{ matrix.builder_parent_tag }}
+      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
+      builder_mode: ${{ matrix.builder_mode }}
+      build_closure: ${{ matrix.build_closure }}
       ancestors: ${{ matrix.ancestors }}
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
       extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
-      build_args: NIXOS_DOCKERS_VERSION=${{ needs.discover-images.outputs.nixos_dockers_version }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit

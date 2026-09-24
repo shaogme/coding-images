@@ -1,5 +1,5 @@
-ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/common:latest
-FROM ${BASE_IMAGE}
+ARG RUNTIME_PARENT_IMAGE=ghcr.io/shaogme/coding-images/common:latest
+FROM ${RUNTIME_PARENT_IMAGE} AS runtime
 ARG TARGETARCH
 
 WORKDIR /workspace
@@ -16,11 +16,13 @@ COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-podman.toml
 # Configure Podman engine defaults
 RUN { \
         echo '[containers]'; \
-        echo 'cgroup_manager = "cgroupfs"'; \
+        echo 'cgroups = "enabled"'; \
+        echo 'cgroupns = "private"'; \
         echo 'events_logger = "file"'; \
         echo 'netavark_enabled = true'; \
         echo ''; \
         echo '[engine]'; \
+        echo 'cgroup_manager = "cgroupfs"'; \
         echo 'runtime = "crun"'; \
         echo 'runtimes.crun = ["/nix/var/nix/profiles/default/bin/crun", "/usr/bin/crun"]'; \
         echo 'compose_providers = ["/nix/var/nix/profiles/default/bin/podman-compose", "podman-compose"]'; \

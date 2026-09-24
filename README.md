@@ -42,13 +42,14 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 
 - **树状分层继承架构**：镜像之间通过 `FROM` 构建继承链（`common` 作为基底，`rust-common` 继承 `common`，`rust-wasm` 继承 `rust-common`），杜绝重复下载与编译，层级复用率极高。
 - **多架构原生构建**：通过 GitHub Actions 分别在 x86_64（`ubuntu-latest`）和 ARM64（`ubuntu-24.04-arm`）运行器上原生编译打包，避免 QEMU 模拟器的性能开销，生成统一的 Multi-Arch 镜像清单。
+- **可复用的 BuildKit 缓存**：构建 job 启用 Docker containerd image store，在保留本地父级 archive 加载能力的同时使用独立的 builder/runtime GHA 与 registry cache scope。
 - **声明式与模块化环境管理**：底层借助 NixOS 基础镜像提供干净可靠的系统级依赖，用户空间通过 `mise` 的系统与全局模块化配置（`/etc/mise/conf.d/`）按层级独立注入 Node.js、Python、Rust、WebAssembly 及各类 CLI 工具。
 - **自适应 UID/GID 权限映射**：底层完全承接 NixOS 的自适应 UID/GID 权限映射机制（支持 `HOST_UID:HOST_GID` 环境变量或启动时自动探测挂载的 `/workspace` 工作区属主），使用 `su-exec` 切换至匹配的本地普通用户（默认 `dev`），彻底解决宿主机代码与容器构建产物的权限冲突问题。
 - **全自动 Devbox 深度集成**：内置 `devbox` 及其 shell 集成，配合预置系统级配置、统一数据持久化（`/data/devbox`）与自适应权限映射，容器启动或切换目录时自动探测、初始化（支持 `DEVBOX_AUTO_INIT`）与加载 `devbox.json` 环境，开箱即用。
 - **内置 AI 编程套件与统一存储**：在基础镜像 `common` 中预装主流终端 AI 编码工具（`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`），并通过统一数据卷与全局目录映射（`coding-config:/data/coding-config`）自动软链接汇聚 `~/.claude`、`~/.codex`、`~/.gemini` 与 `~/.config/opencode`，实现高内聚的一键凭证备份、迁移与跨镜像共享。
 - **标准化 Dev Containers 规范支持**：全量在各层级镜像中预置标准化 `.devcontainer/devcontainer.json` 配置，将安全能力（`cap_add`、`seccomp`）、环境变量及持久化挂载声明为通用工业标准，开箱即用无缝支持 VS Code、Cursor、Zed 等现代容器化 IDE。
 - **统一运行时入口**：所有镜像使用 `/usr/bin/container-init run --`，以声明式 Bootstrap DSL 处理身份、目录和设备，再由 `/usr/bin/dev-env` 物化 mise、Devbox、sccache 与 shell 环境，子镜像无需维护入口脚本。
-- **独立的 Mise 构建阶段**：需要预装工具的镜像使用同版本 `nixos-dockers/mise-builder` 生成缓存，再复制到 runtime；运行时镜像不会把 `container-init` 的 Bash shim 当作构建 shell。
+- **独立的 Mise 构建阶段**：需要预装工具的镜像同时生成 `mise-builder` 与 `runtime` target。builder 沿 builder lineage 继承，runtime 沿 runtime lineage 继承；builder 只在同一 workflow 的短期 artifact 中传递，不发布到 GHCR。
 - **明确的构建产物边界**：只复制 `/etc/mise`、`/usr/local/share/mise`、`/data/cache/mise` 以及 Rust 工具链的显式目录，不复制 builder 的 root 配置、临时文件或构建凭据。
 
 ---
@@ -86,7 +87,12 @@ flowchart TD
     QemuRustCross["【层级 4】qemu-rust-cross<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild<br/>• QEMU 全套虚拟机与仿真运行环境<br/>• 结合 Podman + QEMU 跨架构调试与验证"]
 
     Upstream --> Common
-    Builder -.->|Mise lock/install| Common
+    Builder -.->|common builder artifact| Common
+    Builder -.->|builder parent| RustCommon
+    RustCommon -.->|builder parent| RustWasm
+    RustCommon -.->|builder parent| RustCross
+    Builder -.->|builder lineage root| QemuRustCommon
+    QemuRustCommon -.->|builder parent| QemuRustCross
     Common --> Podman
     Common --> NpinsCommon
     Podman --> RustCommon
@@ -125,7 +131,7 @@ flowchart TD
 - **通用与环境工具**：`devbox`、`jq`、`ripgrep`、`gh`（GitHub CLI）
 - **核心组件**：`container-init` Bootstrap runtime、`dev-env` environment materializer、声明式 Devbox 自动初始化与加载环境支持
 
-`common` 的全局工具由 builder stage 安装后复制到 runtime。`mise-builder` 本身不包含
+`common` 的全局工具由 builder stage 安装后通过白名单 `rsync` 同步到 runtime。`mise-builder` 本身不包含
 `container-init`、`dev-env` 或运行时 Bash shim，不能作为开发容器直接运行。
 
 ### 2. podman (Podman 容器引擎环境)
@@ -134,6 +140,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/podman:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/common:latest`
+- **Builder**：passthrough，复用 `common` builder artifact，不生成新的 builder archive
 - **包含 common 的所有环境**，并额外增加：
   - **系统包（Nix）**：`podman`、`crun`、`conmon`、`podman-compose`
   - **Docker 命令与编排透明兼容**：通过 `dev-env` 声明式提供 `/usr/local/bin/docker` 与 `/usr/local/bin/docker-compose` 符号链接及 `/var/run/docker.sock` 软链接；完整支持 `docker compose`、`docker-compose`、`podman compose` 与 `podman-compose`
@@ -146,6 +153,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/npins-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/common:latest`
+- **Builder**：passthrough，复用 `common` builder artifact，不生成新的 builder archive
 - **包含 common 的所有环境**，并额外增加系统包：`nixpkgs.npins`
 
 ### 4. rust-common (Rust 核心开发环境)
@@ -154,7 +162,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/podman:latest`
-- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
+- **Builder parent**：`common` builder artifact
 - **包含 podman 的所有环境**（具备开箱即用的 Podman 容器运行时），并额外增加：
   - **开发语言与运行时（mise）**：
     - Rust: `stable`（包含 `rust-src` 源码组件）
@@ -174,6 +182,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/podman:latest`
+- **Builder**：passthrough，复用 `common` builder artifact，不生成新的 builder archive
 - **包含 podman 的所有环境**（具备开箱即用的 Podman 容器运行时与 Docker 透明伪装），并额外增加：
   - **系统包（Nix）**：
     - `qemu`：多架构系统模拟器（`qemu-system-x86_64`、`qemu-system-aarch64` 等）、虚拟磁盘管理（`qemu-img`）、网络块设备（`qemu-nbd`）
@@ -193,6 +202,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/npins-rust:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
+- **Builder**：passthrough，复用 `rust-common` builder artifact，不生成新的 builder archive
 - **包含 rust-common 的所有环境**，并额外增加系统包：`nixpkgs.npins`
 
 ### 7. rust-wasm (Rust WebAssembly 环境)
@@ -201,7 +211,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-wasm:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
-- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
+- **Builder parent**：`rust-common` builder artifact
 - **包含 rust-common 的所有环境**，并额外增加：
   - **系统包（Nix）**：`fontconfig`、`dejavu_fonts`、`mesa`、`firefox`、`geckodriver`
   - **Rust 交叉编译 Target**：`wasm32-unknown-unknown`（针对 `stable` 和 `nightly`）
@@ -214,7 +224,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-cross:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
-- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
+- **Builder parent**：`rust-common` builder artifact
 - **包含 rust-common 的所有环境**（直接继承底层 Podman 容器引擎），并额外增加：
   - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
   - **轻量解耦设计**：Podman、运行时配置与 Docker 透明伪装已由基础层 `podman` / `rust-common` 提供，`rust-cross` 聚焦于跨平台编译工具链本身，杜绝重复安装
@@ -226,7 +236,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-rust-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/qemu-common:latest`
-- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
+- **Builder parent**：`qemu-common` builder lineage（内容复用 `common` builder artifact）
 - **包含 qemu-common 的所有环境**（具备开箱即用的 QEMU 全套组件、OVMF 固件、swtpm、KVM 硬件加速与 Podman 容器运行时），并额外增加：
   - **开发语言与运行时（mise）**：
     - Rust: `stable`（包含 `rust-src` 源码组件）
@@ -246,7 +256,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-rust-cross:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/qemu-rust-common:latest`
-- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`
+- **Builder parent**：`qemu-rust-common` builder artifact
 - **包含 qemu-rust-common 的所有环境**（具备 QEMU 仿真环境、KVM 加速、Rust 编译器套件与 Podman 引擎），并额外增加：
   - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
   - **cross 运行时引擎指定**：预置 `CROSS_CONTAINER_ENGINE=podman`
@@ -584,40 +594,43 @@ images/rust/wasm/
 └── docker-compose.yml    # 本地容器编排配置
 ```
 
-### Mise builder/runtime 分离
+### Mise builder/runtime 双轨
 
 凡是需要在 Docker 构建阶段执行 `mise trust`、`mise lock` 或 `mise install` 的镜像，
-都必须把这些命令放在独立的 builder stage。builder 和 runtime 使用同一个
-`NIXOS_DOCKERS_VERSION`，并且只复制明确的工具目录：
+都必须声明 `mise-builder` 和 `runtime` 两个 target。builder parent 与 runtime parent
+是两个独立参数，只有 builder 的受控目录会通过 BuildKit bind mount + `rsync` 进入
+runtime：
 
 ```dockerfile
 ARG NIXOS_DOCKERS_VERSION=latest
-ARG BASE_IMAGE=ghcr.io/shaogme/nixos-dockers/mise:${NIXOS_DOCKERS_VERSION}
-ARG BUILDER_IMAGE=ghcr.io/shaogme/nixos-dockers/mise-builder:${NIXOS_DOCKERS_VERSION}
+ARG RUNTIME_PARENT_IMAGE=ghcr.io/shaogme/nixos-dockers/mise:${NIXOS_DOCKERS_VERSION}
+ARG BUILDER_PARENT_IMAGE=ghcr.io/shaogme/nixos-dockers/mise-builder:${NIXOS_DOCKERS_VERSION}
 
-FROM ${BASE_IMAGE} AS runtime-base
-RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise
+FROM ${RUNTIME_PARENT_IMAGE} AS runtime-base
 
-FROM ${BUILDER_IMAGE} AS mise-tools
-COPY --from=runtime-base /etc/mise /etc/mise
+FROM ${BUILDER_PARENT_IMAGE} AS mise-builder
 COPY .config/mise.toml /etc/mise/conf.d/10-project.toml
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
-    mise install; \
-    chmod -R a+rwX /etc/mise /usr/local/share/mise /data/cache/mise
+    mise install
 
-FROM runtime-base
-COPY --from=mise-tools /etc/mise /etc/mise
-COPY --from=mise-tools /usr/local/share/mise /usr/local/share/mise
-COPY --from=mise-tools /data/cache/mise /data/cache/mise
+FROM runtime-base AS runtime
+RUN nix profile add nixpkgs#rsync
+RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
+    set -eu; \
+    for path in /etc/mise /usr/local/share/mise /data/cache/mise; do \
+        mkdir -p "$path"; \
+        rsync -aH --checksum --omit-dir-times \
+            "/mnt/mise-builder$path/" "$path/"; \
+    done
 ```
 
-不要在 `FROM .../mise`、`FROM .../rust-common` 等 runtime stage 中执行 Mise 安装，
-也不要复制 builder 的 `/root`、`/tmp` 或完整 `/usr/local`。builder 只服务于构建，
-最终镜像仍由 runtime 的 `container-init` entrypoint 提供身份和 shell handoff。
+不要在 runtime stage 中执行 Mise 安装，也不要同步 builder 的 `/root`、`/tmp`、
+`/run/secrets` 或完整 `/usr/local`。builder archive 只在当前 workflow 的 job 之间
+传递，最终用户只接触 runtime 镜像；`latest` 不是 builder 标签。
 
 ### 镜像自动发现脚本
 
@@ -647,6 +660,10 @@ python3 scripts/discover_images.py --format matrix
 NIXOS_DOCKERS_VERSION=2026.8.24 ./scripts/build_local.sh common
 ```
 
+单目标构建会先构建它的 runtime ancestor closure。每个 Mise image 的 builder target
+会输出 `builder-<image>-<arch>.tar.gz` 和 SHA-256 sidecar，加载后以本地 lineage tag
+供下一级使用；passthrough 层直接复用最近的 builder artifact，不重新打包。
+
 ---
 
 ## CI/CD 自动化构建与发布
@@ -664,11 +681,15 @@ flowchart TD
     Stage3 --> Stage4["阶段六: Stage 4 (Layer 4)<br/>构建基于 qemu-rust-common 的 qemu-rust-cross 并发布"]
 ```
 
-1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建；其 builder stage 使用同版本的 `nixos-dockers/mise-builder`。
+1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建；其 builder parent 使用同版本的上游 `nixos-dockers/mise-builder`。
 2. **Stage 1 (Layer 1)**：并行构建基于 `common` 的 `podman` 与 `npins-common`。
 3. **Stage 2 (Layer 2)**：并行构建基于 `podman` 的 `rust-common` 与 `qemu-common`。
 4. **Stage 3 (Layer 3)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross`、`npins-rust` 与基于 `qemu-common` 的 `qemu-rust-common`。
 5. **Stage 4 (Layer 4)**：构建基于 `qemu-rust-common` 的 `qemu-rust-cross`。
+
+每个架构 job 都上传 `runtime-<image>-<arch>.tar.gz` 及校验文件；有 Mise 增量的镜像
+另外上传同名 builder archive。`push=false` 只关闭 runtime GHCR 发布，不能跳过内部
+artifact。merge job 只加载和推送 runtime archive，不创建 builder 标签或 manifest。
 
 ### 镜像标签管理策略
 

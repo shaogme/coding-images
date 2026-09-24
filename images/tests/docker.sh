@@ -24,13 +24,10 @@ command -v docker >/dev/null
 command -v bash >/dev/null
 
 docker_run() {
-    # cgroup.v2_init needs the runner's delegated parent hierarchy. A private
-    # cgroup namespace can expose controllers while rejecting delegation with
-    # EOPNOTSUPP, which prevents nested Podman from starting.
     docker run \
-        --cgroupns=host \
         --cap-add=SYS_ADMIN \
         --cap-add=NET_ADMIN \
+        --cgroupns=private \
         --security-opt apparmor=unconfined \
         --security-opt seccomp=unconfined \
         --security-opt systempaths=unconfined \

@@ -79,5 +79,9 @@ depends_on = ["run-podman"]
 [[bootstrap.actions]]
 id = "cgroup-init"
 kind = "cgroup.v2_init"
+# Docker keeps /sys/fs/cgroup read-only for ordinary containers. Use a private
+# writable cgroup2 hierarchy and bind-mount it over the standard path.
 mount_mode = "bind_mount"
+required_controllers = ["cpu", "pids"]
+optional_controllers = ["cpuset", "io", "memory"]
 run_as = "root"

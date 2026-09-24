@@ -1,47 +1,72 @@
-name: Build Single Image Multi-Arch
+name: Build & Merge Single Image Multi-Arch
 
 on:
   workflow_call:
     inputs:
       image_name:
-        description: 'Name of the image (e.g. rust-common)'
+        description: Image name
         required: true
         type: string
       context:
-        description: 'Docker build context path'
+        description: Docker build context path
         required: true
         type: string
       dockerfile:
-        description: 'Path to Dockerfile'
+        description: Dockerfile path
         required: true
         type: string
+      runtime_parent:
+        description: Runtime parent image name or upstream mise image
+        required: true
+        type: string
+      builder_parent:
+        description: Logical builder parent image name
+        required: true
+        type: string
+      builder_parent_tag:
+        description: Local architecture-tagged builder parent name
+        required: true
+        type: string
+      builder_artifact_parent:
+        description: Image whose builder archive should be downloaded
+        required: true
+        type: string
+      builder_mode:
+        description: mise or passthrough
+        required: true
+        type: string
+      build_closure:
+        description: Runtime and builder closure metadata
+        required: false
+        default: '{}'
+        type: string
       build_args:
-        description: 'Optional build-args to pass to docker build'
+        description: Additional build args
         required: false
         default: ''
         type: string
+      nixos_dockers_version:
+        description: Immutable upstream NixOS Docker version
+        required: false
+        default: latest
+        type: string
       push:
-        description: 'Push image to registry'
+        description: Push runtime image to GHCR
         required: false
         default: true
         type: boolean
       extra_tag:
-        description: 'Optional extra tag'
+        description: Optional extra runtime tag
         required: false
         default: ''
         type: string
       ancestors:
-        description: 'JSON array string of ancestor images for cache cascade'
+        description: Runtime ancestors for compatibility with cache consumers
         required: false
         default: '["global"]'
         type: string
 
 jobs:
-  # --------------------------------------------------------------------------
-  # 1. Native Multi-Platform Build:
-  #    - linux/amd64 built natively on ubuntu-latest (x86_64)
-  #    - linux/arm64 built natively on ubuntu-24.04-arm (arm64)
-  # --------------------------------------------------------------------------
   build-arch:
     name: Build (${{ inputs.image_name }} - ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
@@ -62,8 +87,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
+      - name: Enable Docker containerd image store
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          # Parent archives are loaded into the runner's Docker image store;
+          # the docker driver lets BuildKit resolve those local lineage tags.
+          driver: docker
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -72,85 +111,170 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata & configure multi-tier cache
-        id: meta
+      - name: Download and load parent runtime archive
+        if: inputs.runtime_parent != 'mise'
+        uses: actions/download-artifact@main
+        with:
+          name: runtime-${{ inputs.runtime_parent }}-${{ matrix.arch }}
+          path: /tmp/parent-runtime
+
+      - name: Download and load parent builder archive
+        if: inputs.builder_artifact_parent != 'mise-builder'
+        uses: actions/download-artifact@main
+        with:
+          name: builder-${{ inputs.builder_artifact_parent }}-${{ matrix.arch }}
+          path: /tmp/parent-builder
+
+      - name: Verify and load parent archives
+        env:
+          REPO_LOWER: ${{ github.repository }}
+        run: |
+          set -Eeuo pipefail
+          REPO_LOWER=$(echo "$REPO_LOWER" | tr '[:upper:]' '[:lower:]')
+          ARCH='${{ matrix.arch }}'
+          PLATFORM='${{ matrix.platform }}'
+
+          load_archive() {
+            local archive="$1"
+            local checksum="${archive%.tar.gz}.sha256"
+            test -f "$archive" && test -f "$checksum"
+            (cd "$(dirname "$archive")" && sha256sum -c "$(basename "$checksum")")
+            gzip -dc "$archive" | docker load
+          }
+
+          if [ '${{ inputs.runtime_parent }}' = 'mise' ]; then
+            docker pull --platform "$PLATFORM" "ghcr.io/shaogme/nixos-dockers/mise:${{ inputs.nixos_dockers_version }}"
+            docker tag "ghcr.io/shaogme/nixos-dockers/mise:${{ inputs.nixos_dockers_version }}" "local/coding-images/mise:${ARCH}"
+          else
+            load_archive "/tmp/parent-runtime/runtime-${{ inputs.runtime_parent }}-${ARCH}.tar.gz"
+          fi
+
+          if [ '${{ inputs.builder_artifact_parent }}' = 'mise-builder' ]; then
+            docker pull --platform "$PLATFORM" "ghcr.io/shaogme/nixos-dockers/mise-builder:${{ inputs.nixos_dockers_version }}"
+            docker tag "ghcr.io/shaogme/nixos-dockers/mise-builder:${{ inputs.nixos_dockers_version }}" "local/coding-images/mise-builder:${ARCH}"
+          else
+            load_archive "/tmp/parent-builder/builder-${{ inputs.builder_artifact_parent }}-${ARCH}.tar.gz"
+            # A passthrough builder has no archive of its own. Alias the real
+            # artifact to the logical lineage name expected by the Dockerfile.
+            if [ '${{ inputs.builder_artifact_parent }}-builder' != '${{ inputs.builder_parent_tag }}' ]; then
+              docker tag "local/coding-images/${{ inputs.builder_artifact_parent }}-builder:${ARCH}" "local/coding-images/${{ inputs.builder_parent_tag }}:${ARCH}"
+            fi
+          fi
+
+      - name: Configure independent BuildKit caches
+        id: cache
         env:
           REPO_LOWER: ${{ github.repository }}
           ANCESTORS: ${{ inputs.ancestors }}
         run: |
+          set -Eeuo pipefail
           REPO_LOWER=$(echo "$REPO_LOWER" | tr '[:upper:]' '[:lower:]')
-          IMAGE_BASE="ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}"
           CACHE_REPO="ghcr.io/${REPO_LOWER}/buildcache"
-          ARCH="${{ matrix.arch }}"
-          IMAGE="${{ inputs.image_name }}"
-          
-          echo "image_base=${IMAGE_BASE}" >> $GITHUB_OUTPUT
-          echo "cache_repo=${CACHE_REPO}" >> $GITHUB_OUTPUT
-
-          # Build multi-layer cache-from sources (GHA + GHCR registry)
-          CACHE_SOURCES="type=gha,scope=${IMAGE}-${ARCH}\n"
-          CACHE_SOURCES="${CACHE_SOURCES}type=registry,ref=${CACHE_REPO}:${IMAGE}-${ARCH}\n"
-
-          if [ -n "$ANCESTORS" ] && [ "$ANCESTORS" != "null" ]; then
-            for anc in $(echo "$ANCESTORS" | jq -r '.[]? // empty'); do
-              if [ -n "$anc" ] && [ "$anc" != "$IMAGE" ]; then
-                CACHE_SOURCES="${CACHE_SOURCES}type=gha,scope=${anc}-${ARCH}\n"
-                CACHE_SOURCES="${CACHE_SOURCES}type=registry,ref=${CACHE_REPO}:${anc}-${ARCH}\n"
-              fi
+          IMAGE='${{ inputs.image_name }}'
+          ARCH='${{ matrix.arch }}'
+          {
+            echo 'builder_from<<EOF'
+            echo "type=gha,scope=builder-${IMAGE}-${ARCH}"
+            echo "type=registry,ref=${CACHE_REPO}:builder-${IMAGE}-${ARCH}"
+            echo 'EOF'
+            echo 'builder_to<<EOF'
+            echo "type=gha,mode=max,scope=builder-${IMAGE}-${ARCH}"
+            echo "type=registry,ref=${CACHE_REPO}:builder-${IMAGE}-${ARCH},mode=max,image-manifest=true"
+            echo 'EOF'
+            echo 'runtime_from<<EOF'
+            echo "type=gha,scope=runtime-${IMAGE}-${ARCH}"
+            echo "type=registry,ref=${CACHE_REPO}:runtime-${IMAGE}-${ARCH}"
+            echo "type=gha,scope=builder-${IMAGE}-${ARCH}"
+            echo "type=registry,ref=${CACHE_REPO}:builder-${IMAGE}-${ARCH}"
+            for ancestor in $(echo "$ANCESTORS" | jq -r '.[]? // empty'); do
+              echo "type=gha,scope=runtime-${ancestor}-${ARCH}"
+              echo "type=registry,ref=${CACHE_REPO}:runtime-${ancestor}-${ARCH}"
             done
-          fi
+            echo 'EOF'
+            echo 'runtime_to<<EOF'
+            echo "type=gha,mode=max,scope=runtime-${IMAGE}-${ARCH}"
+            echo "type=registry,ref=${CACHE_REPO}:runtime-${IMAGE}-${ARCH},mode=max,image-manifest=true"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
-          CACHE_SOURCES="${CACHE_SOURCES}type=gha,scope=common-${ARCH}\n"
-          CACHE_SOURCES="${CACHE_SOURCES}type=registry,ref=${CACHE_REPO}:common-${ARCH}\n"
-          CACHE_SOURCES="${CACHE_SOURCES}type=gha,scope=global-${ARCH}\n"
-          CACHE_SOURCES="${CACHE_SOURCES}type=registry,ref=${CACHE_REPO}:global-${ARCH}\n"
-
-          echo "cache_from<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$CACHE_SOURCES" | awk '!seen[$0]++' >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Build and push by digest
-        id: build
+      - name: Build builder archive
+        if: inputs.builder_mode == 'mise'
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
-          build-args: ${{ inputs.build_args }}
+          target: mise-builder
+          build-args: |
+            ${{ inputs.build_args }}
+            NIXOS_DOCKERS_VERSION=${{ inputs.nixos_dockers_version }}
+            RUNTIME_PARENT_IMAGE=local/coding-images/${{ inputs.runtime_parent }}:${{ matrix.arch }}
+            BUILDER_PARENT_IMAGE=local/coding-images/${{ inputs.builder_parent_tag }}:${{ matrix.arch }}
           secrets: |
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          pull: true
+          pull: false
           platforms: ${{ matrix.platform }}
-          outputs: ${{ inputs.push && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.image_base) || 'type=image,push=false' }}
-          cache-from: ${{ steps.meta.outputs.cache_from }}
-          cache-to: ${{ inputs.push && format('type=gha,mode=max,scope={0}-{1}\ntype=registry,ref={2}:{0}-{1},mode=max,image-manifest=true', inputs.image_name, matrix.arch, steps.meta.outputs.cache_repo) || format('type=gha,mode=max,scope={0}-{1}', inputs.image_name, matrix.arch) }}
-          labels: |
-            org.opencontainers.image.title=${{ inputs.image_name }}
-            org.opencontainers.image.description=Coding environment image for ${{ inputs.image_name }} (${{ matrix.arch }})
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+          tags: local/coding-images/${{ inputs.image_name }}-builder:${{ matrix.arch }}
+          outputs: type=docker,dest=/tmp/builder-${{ inputs.image_name }}-${{ matrix.arch }}.tar
+          cache-from: ${{ steps.cache.outputs.builder_from }}
+          cache-to: ${{ steps.cache.outputs.builder_to }}
 
-      - name: Export digest
-        if: inputs.push
+      - name: Build runtime archive
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          target: runtime
+          build-args: |
+            ${{ inputs.build_args }}
+            NIXOS_DOCKERS_VERSION=${{ inputs.nixos_dockers_version }}
+            RUNTIME_PARENT_IMAGE=local/coding-images/${{ inputs.runtime_parent }}:${{ matrix.arch }}
+            BUILDER_PARENT_IMAGE=local/coding-images/${{ inputs.builder_parent_tag }}:${{ matrix.arch }}
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          pull: false
+          platforms: ${{ matrix.platform }}
+          tags: local/coding-images/${{ inputs.image_name }}:${{ matrix.arch }}
+          outputs: type=docker,dest=/tmp/runtime-${{ inputs.image_name }}-${{ matrix.arch }}.tar
+          cache-from: ${{ steps.cache.outputs.runtime_from }}
+          cache-to: ${{ steps.cache.outputs.runtime_to }}
+
+      - name: Compress and checksum archives
         run: |
-          mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
+          set -Eeuo pipefail
+          if [ '${{ inputs.builder_mode }}' = 'mise' ]; then
+            gzip -1 "/tmp/builder-${{ inputs.image_name }}-${{ matrix.arch }}.tar"
+            (cd /tmp && sha256sum "builder-${{ inputs.image_name }}-${{ matrix.arch }}.tar.gz") > "/tmp/builder-${{ inputs.image_name }}-${{ matrix.arch }}.sha256"
+          fi
+          gzip -1 "/tmp/runtime-${{ inputs.image_name }}-${{ matrix.arch }}.tar"
+          (cd /tmp && sha256sum "runtime-${{ inputs.image_name }}-${{ matrix.arch }}.tar.gz") > "/tmp/runtime-${{ inputs.image_name }}-${{ matrix.arch }}.sha256"
 
-      - name: Upload digest artifact
-        if: inputs.push
+      - name: Upload runtime archive
         uses: actions/upload-artifact@main
         with:
-          name: digests-${{ inputs.image_name }}-${{ matrix.arch }}
-          path: /tmp/digests/*
+          name: runtime-${{ inputs.image_name }}-${{ matrix.arch }}
+          path: |
+            /tmp/runtime-${{ inputs.image_name }}-${{ matrix.arch }}.tar.gz
+            /tmp/runtime-${{ inputs.image_name }}-${{ matrix.arch }}.sha256
+          compression-level: 0
           if-no-files-found: error
           retention-days: 1
 
-  # --------------------------------------------------------------------------
-  # 2. Merge manifests and publish multi-arch images on ubuntu-latest
-  # --------------------------------------------------------------------------
+      - name: Upload builder archive
+        if: inputs.builder_mode == 'mise'
+        uses: actions/upload-artifact@main
+        with:
+          name: builder-${{ inputs.image_name }}-${{ matrix.arch }}
+          path: |
+            /tmp/builder-${{ inputs.image_name }}-${{ matrix.arch }}.tar.gz
+            /tmp/builder-${{ inputs.image_name }}-${{ matrix.arch }}.sha256
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
+
   merge-and-publish:
     name: Merge & Publish (${{ inputs.image_name }})
     needs: build-arch
+    if: inputs.push
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -159,64 +283,52 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
-      - name: Download digests
-        if: inputs.push
+      - name: Download runtime archives
         uses: actions/download-artifact@main
         with:
-          path: /tmp/digests
-          pattern: digests-${{ inputs.image_name }}-*
+          path: /tmp/runtime-images
+          pattern: runtime-${{ inputs.image_name }}-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
-        if: inputs.push
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        if: inputs.push
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create multi-arch manifest list and push
-        if: inputs.push
+      - name: Load and push runtime architecture images
+        run: |
+          set -Eeuo pipefail
+          REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          IMAGE_BASE="ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}"
+          for archive in /tmp/runtime-images/runtime-${{ inputs.image_name }}-*.tar.gz; do
+            checksum="${archive%.tar.gz}.sha256"
+            (cd "$(dirname "$archive")" && sha256sum -c "$(basename "$checksum")")
+            gzip -dc "$archive" | docker load
+          done
+          docker tag "local/coding-images/${{ inputs.image_name }}:amd64" "${IMAGE_BASE}:amd64"
+          docker tag "local/coding-images/${{ inputs.image_name }}:arm64" "${IMAGE_BASE}:arm64"
+          docker push "${IMAGE_BASE}:amd64"
+          docker push "${IMAGE_BASE}:arm64"
+
+      - name: Create multi-arch runtime manifest
         env:
           EXTRA_TAG: ${{ inputs.extra_tag }}
         run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          set -Eeuo pipefail
+          REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
           IMAGE_BASE="ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}"
           DATE_TAG=$(date +'%Y%m%d')
-          SHA_SHORT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          TAG_ARGS=(-t "${IMAGE_BASE}:latest" -t "${IMAGE_BASE}:${DATE_TAG}" -t "${IMAGE_BASE}:sha-${SHA_SHORT}")
+          if [ -n "$EXTRA_TAG" ]; then TAG_ARGS+=(-t "${IMAGE_BASE}:${EXTRA_TAG}"); fi
+          docker buildx imagetools create "${TAG_ARGS[@]}" "${IMAGE_BASE}:amd64" "${IMAGE_BASE}:arm64"
 
-          TAG_ARGS=()
-          TAG_ARGS+=("-t" "${IMAGE_BASE}:latest")
-          TAG_ARGS+=("-t" "${IMAGE_BASE}:${DATE_TAG}")
-          if [ "${SHA_SHORT}" != "unknown" ]; then
-            TAG_ARGS+=("-t" "${IMAGE_BASE}:sha-${SHA_SHORT}")
-          fi
-          if [ -n "$EXTRA_TAG" ]; then
-            TAG_ARGS+=("-t" "${IMAGE_BASE}:${EXTRA_TAG}")
-          fi
-
-          cd /tmp/digests
-          DIGEST_SOURCES=()
-          for hash in *; do
-            DIGEST_SOURCES+=("${IMAGE_BASE}@sha256:${hash}")
-          done
-
-          echo "Merging manifests for ${IMAGE_BASE} with sources:"
-          printf '  - %s\n' "${DIGEST_SOURCES[@]}"
-          echo "Tags to apply:"
-          for (( i=0; i<${#TAG_ARGS[@]}; i+=2 )); do
-            echo "  * ${TAG_ARGS[$i+1]}"
-          done
-
-          docker buildx imagetools create "${TAG_ARGS[@]}" "${DIGEST_SOURCES[@]}"
-
-      - name: Inspect multi-arch manifest
-        if: inputs.push
+      - name: Inspect multi-arch runtime manifest
         run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE_BASE="ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}"
-          docker buildx imagetools inspect "${IMAGE_BASE}:latest"
+          REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          docker buildx imagetools inspect "ghcr.io/${REPO_LOWER}/${{ inputs.image_name }}:latest"

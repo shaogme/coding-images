@@ -1,5 +1,5 @@
-ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/common:latest
-FROM ${BASE_IMAGE}
+ARG RUNTIME_PARENT_IMAGE=ghcr.io/shaogme/coding-images/common:latest
+FROM ${RUNTIME_PARENT_IMAGE} AS runtime
 ARG TARGETARCH
 
 WORKDIR /workspace

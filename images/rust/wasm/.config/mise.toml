@@ -20,13 +20,13 @@ rust = [
 # WebAssembly 工具
 "cargo:wasmi_cli" = {
     version = "latest",
-    depends = ["rust"],
+    depends = ["rust@stable"],
 }
 "cargo:wasm-pack" = {
     version = "latest",
-    depends = ["rust"],
+    depends = ["rust@stable"],
 }
 "cargo:wasm-bindgen-cli" = {
     version = "latest",
-    depends = ["rust"],
+    depends = ["rust@stable"],
 }

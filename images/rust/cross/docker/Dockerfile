@@ -1,12 +1,11 @@
+# syntax=docker/dockerfile:1.7
 ARG NIXOS_DOCKERS_VERSION=latest
-ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/rust-common:latest
-ARG BUILDER_IMAGE=ghcr.io/shaogme/nixos-dockers/mise-builder:${NIXOS_DOCKERS_VERSION}
+ARG RUNTIME_PARENT_IMAGE=ghcr.io/shaogme/coding-images/rust-common:latest
+ARG BUILDER_PARENT_IMAGE=local/coding-images/rust-common-builder:latest
 
-FROM ${BASE_IMAGE} AS runtime-base
-RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise \
-    /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
+FROM ${RUNTIME_PARENT_IMAGE} AS runtime-base
 
-FROM ${BUILDER_IMAGE} AS mise-tools
+FROM ${BUILDER_PARENT_IMAGE} AS mise-builder
 ARG TARGETARCH
 
 WORKDIR /workspace
@@ -18,15 +17,9 @@ ENV RUSTUP_HOME=/usr/local/share/rustup \
     PNPM_HOME=/usr/local/share/pnpm \
     PATH=/usr/local/share/cargo/bin:/usr/local/share/pnpm/bin:/usr/local/share/pnpm:$PATH
 
-RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise \
+RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise /data/cache/mise \
     /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
 
-COPY --from=runtime-base /etc/mise /etc/mise
-COPY --from=runtime-base /usr/local/share/mise /usr/local/share/mise
-COPY --from=runtime-base /data/cache/mise /data/cache/mise
-COPY --from=runtime-base /usr/local/share/rustup /usr/local/share/rustup
-COPY --from=runtime-base /usr/local/share/cargo /usr/local/share/cargo
-COPY --from=runtime-base /usr/local/share/pnpm /usr/local/share/pnpm
 COPY .config/mise.toml /etc/mise/conf.d/30-cross.toml
 
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
@@ -35,17 +28,23 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     echo "Pre-installing Rust cross-compilation tools during docker build..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
-    mise install;
+    mise install
 
-FROM runtime-base
+FROM runtime-base AS runtime
 ARG TARGETARCH
 
 WORKDIR /workspace
 
-COPY .config/mise.toml /etc/mise/conf.d/30-cross.toml
-COPY --from=mise-tools /etc/mise /etc/mise
-COPY --from=mise-tools /usr/local/share/mise /usr/local/share/mise
-COPY --from=mise-tools /data/cache/mise /data/cache/mise
-COPY --from=mise-tools /usr/local/share/rustup /usr/local/share/rustup
-COPY --from=mise-tools /usr/local/share/cargo /usr/local/share/cargo
-COPY --from=mise-tools /usr/local/share/pnpm /usr/local/share/pnpm
+RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
+    set -eu; \
+    for path in \
+        /etc/mise \
+        /usr/local/share/mise \
+        /data/cache/mise \
+        /usr/local/share/rustup \
+        /usr/local/share/cargo \
+        /usr/local/share/pnpm; do \
+        mkdir -p "$path"; \
+        rsync -aH --checksum --omit-dir-times \
+            "/mnt/mise-builder$path/" "$path/"; \
+    done

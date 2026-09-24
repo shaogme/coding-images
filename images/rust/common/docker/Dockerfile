@@ -1,33 +1,31 @@
+# syntax=docker/dockerfile:1.7
 ARG NIXOS_DOCKERS_VERSION=latest
-ARG BASE_IMAGE=ghcr.io/shaogme/coding-images/podman:latest
-ARG BUILDER_IMAGE=ghcr.io/shaogme/nixos-dockers/mise-builder:${NIXOS_DOCKERS_VERSION}
+ARG RUNTIME_PARENT_IMAGE=ghcr.io/shaogme/coding-images/podman:latest
+ARG BUILDER_PARENT_IMAGE=local/coding-images/common-builder:latest
 
-FROM ${BASE_IMAGE} AS runtime-base
-RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise \
-    /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
+FROM ${RUNTIME_PARENT_IMAGE} AS runtime-base
 
-FROM ${BUILDER_IMAGE} AS mise-tools
+FROM ${BUILDER_PARENT_IMAGE} AS mise-builder
 ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Build-time locations for mise-installed Rust and Node tools. The same values
-# are exported at runtime by .config/dev-env.toml.
-ENV RUSTUP_HOME=/usr/local/share/rustup \
+# Keep mise and Rust state in paths copied into the runtime image. The
+# builder's default /root state must never be part of the runtime sync.
+ENV MISE_DATA_DIR=/usr/local/share/mise \
+    MISE_CONFIG_DIR=/etc/mise \
+    MISE_CACHE_DIR=/data/cache/mise \
+    MISE_YES=1 \
+    RUSTUP_HOME=/usr/local/share/rustup \
     MISE_RUSTUP_HOME=/usr/local/share/rustup \
     CARGO_HOME=/usr/local/share/cargo \
     MISE_CARGO_HOME=/usr/local/share/cargo \
     PNPM_HOME=/usr/local/share/pnpm \
     PATH=/usr/local/share/cargo/bin:/usr/local/share/pnpm/bin:/usr/local/share/pnpm:$PATH
 
-RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise \
+RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise /data/cache/mise \
     /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
 
-# Start from the parent's lockfile and caches so this layer installs the
-# merged common and Rust tool set with a normal Bash environment.
-COPY --from=runtime-base /etc/mise /etc/mise
-COPY --from=runtime-base /usr/local/share/mise /usr/local/share/mise
-COPY --from=runtime-base /data/cache/mise /data/cache/mise
 COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
 
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
@@ -36,6 +34,7 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \
+    mise install rust@stable; \
     mise install; \
     TRIPLE=$(rustc -vV 2>/dev/null | sed -n 's/host: //p' || echo "$(uname -m)-unknown-linux-gnu"); \
     cd "${RUSTUP_HOME}/toolchains"; \
@@ -53,9 +52,9 @@ RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
         echo "Error: No nightly Rust toolchain found after linking" >&2; \
         exit 1; \
     fi; \
-    chmod -R 1777 /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm 2>/dev/null || true;
+    chmod -R 1777 /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm 2>/dev/null || true
 
-FROM runtime-base
+FROM runtime-base AS runtime
 ARG TARGETARCH
 
 WORKDIR /workspace
@@ -67,15 +66,23 @@ ENV RUSTUP_HOME=/usr/local/share/rustup \
     PNPM_HOME=/usr/local/share/pnpm \
     PATH=/usr/local/share/cargo/bin:/usr/local/share/pnpm/bin:/usr/local/share/pnpm:$PATH
 
-COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-rust.toml
-COPY --from=mise-tools /etc/mise /etc/mise
-COPY --from=mise-tools /usr/local/share/mise /usr/local/share/mise
-COPY --from=mise-tools /data/cache/mise /data/cache/mise
-COPY --from=mise-tools /usr/local/share/rustup /usr/local/share/rustup
-COPY --from=mise-tools /usr/local/share/cargo /usr/local/share/cargo
-COPY --from=mise-tools /usr/local/share/pnpm /usr/local/share/pnpm
+RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
+    set -eu; \
+    for path in \
+        /etc/mise \
+        /usr/local/share/mise \
+        /data/cache/mise \
+        /usr/local/share/rustup \
+        /usr/local/share/cargo \
+        /usr/local/share/pnpm; do \
+        mkdir -p "$path"; \
+        rsync -aH --checksum --omit-dir-times \
+            "/mnt/mise-builder$path/" "$path/"; \
+    done
 
-RUN set -e; \
+COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-rust.toml
+
+RUN set -eu; \
     for shared_dir in /usr/local/share/mise /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm; do \
         if [ -d "$shared_dir" ]; then \
             chmod -R a+rwX "$shared_dir"; \
@@ -83,7 +90,7 @@ RUN set -e; \
         fi; \
     done
 
-# Install rust debug tools
+# Install rust debug tools.
 RUN nix profile add \
     nixpkgs#valgrind \
     nixpkgs#gdb \
