@@ -1,6 +1,6 @@
 # Base configuration for the application
 x-app-base: &app-base
-  image: ghcr.io/shaogme/coding-images/npins-rust:latest
+  image: ghcr.io/shaogme/coding-images/qemu-rust-common:latest
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
     - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
@@ -17,8 +17,9 @@ x-app-base: &app-base
     - NET_ADMIN
     - SYS_PTRACE
   devices:
+    - /dev/kvm:/dev/kvm # Hardware acceleration for KVM virtualization
+    - /dev/net/tun:/dev/net/tun # TAP/TUN devices for QEMU & Podman virtual networking
     - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
-    - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
   tty: true
 
 services:
@@ -31,6 +32,8 @@ services:
       - .:/workspace
       - /workspace/.git
       - /workspace/nixos-dockers/.git
+      # Persist VM images, cloud-init seeds, and QEMU disks
+      - qemu-data:/data/qemu
       # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
       - rust-target:/data/.cargo/target
       # Persist Cargo dependencies, crate index, and git checkouts
@@ -45,6 +48,7 @@ services:
       - coding-config:/data/coding-config
 
 volumes:
+  qemu-data:
   rust-target:
   cargo:
   cache:

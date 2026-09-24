@@ -357,6 +357,7 @@ Bootstrap 和 environment 是两个独立 namespace：`container-init` 不包含
 
 - 工作区存在 `devbox.json` 时，`devbox-project` provider 按声明执行 `install` 和 `shellenv`。
 - `DEVBOX_AUTO_INIT=1` 或 `true` 会将 `features.devbox.auto_init` 设为 `if-missing`，仅在工作区没有配置且可写时执行 `devbox init`。
+- Devbox 的 shellenv 输出带有行尾分号和 `hash -r`；profile 使用 `--no-refresh-alias`，解析器只将这些环境赋值导入环境，不执行 alias、函数或其他 shell 代码。
 - `dev-env print`、`dev-env exec`、shell shim、SSH login shell 和 `docker exec ... dev-env` 都从同一 profile chain 重新物化环境。
 - Devbox 数据、Cargo target、sccache 和 AI 配置目录由 profile 的环境变量及 Bootstrap action 指向 `/data` 下的持久化卷。
 
