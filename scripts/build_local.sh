@@ -11,6 +11,24 @@ BASE_IMAGE_OVERRIDE="${BASE_IMAGE_OVERRIDE:-}"
 BUILDER_IMAGE_OVERRIDE="${BUILDER_IMAGE_OVERRIDE:-}"
 NIXOS_DOCKERS_VERSION="${NIXOS_DOCKERS_VERSION:-latest}"
 TARGET="${1:-all}"
+BUILD_ENGINE="${BUILD_ENGINE:-docker}"
+
+if ! command -v "$BUILD_ENGINE" >/dev/null 2>&1; then
+    echo "Build engine not found: ${BUILD_ENGINE}" >&2
+    exit 127
+fi
+
+# Podman accepts secret mounts, but does not understand BuildKit's `env=` mount
+# option. Detect it even when the `docker` command is a Podman compatibility
+# wrapper so local builds can use the same Dockerfiles as CI.
+BUILD_ENGINE_PATH="$(command -v "$BUILD_ENGINE")"
+BUILD_ENGINE_REALPATH="$(readlink -f "$BUILD_ENGINE_PATH" 2>/dev/null || printf '%s' "$BUILD_ENGINE_PATH")"
+BUILD_ENGINE_VERSION="$("$BUILD_ENGINE" --version 2>&1 || true)"
+if [[ "$(basename "$BUILD_ENGINE_REALPATH")" == podman || "${BUILD_ENGINE_VERSION,,}" == *podman* ]]; then
+    USE_PODMAN=1
+else
+    USE_PODMAN=0
+fi
 
 echo "========================================================"
 echo "  Building Coding Images Locally (Target: ${TARGET})"
@@ -37,7 +55,7 @@ build_image() {
     fi
     echo "--------------------------------------------------------"
 
-    local cmd=(docker build -t "${REPO_PREFIX}/${img_name}:latest" -f "${dockerfile}")
+    local cmd=("$BUILD_ENGINE" build -t "${REPO_PREFIX}/${img_name}:latest" -f "${dockerfile}")
     if [ -n "$base_arg" ]; then
         cmd+=(--build-arg "BASE_IMAGE=${base_arg}")
     fi
@@ -45,9 +63,22 @@ build_image() {
     if [ -n "$builder_arg" ]; then
         cmd+=(--build-arg "BUILDER_IMAGE=${builder_arg}")
     fi
+    if (( USE_PODMAN )); then
+        # Podman's --secret env source keeps the token out of image layers.
+        if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+            cmd+=(--secret "id=GITHUB_TOKEN,env=GITHUB_TOKEN")
+        fi
+    fi
     cmd+=("${context}")
 
-    "${cmd[@]}"
+    local build_status
+    if "${cmd[@]}"; then
+        build_status=0
+    else
+        build_status=$?
+    fi
+
+    return "$build_status"
 }
 
 build_target() {

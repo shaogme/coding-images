@@ -29,7 +29,8 @@ COPY --from=runtime-base /usr/local/share/cargo /usr/local/share/cargo
 COPY --from=runtime-base /usr/local/share/pnpm /usr/local/share/pnpm
 COPY .config/mise.toml /etc/mise/conf.d/30-cross.toml
 
-RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
+    if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
     echo "Pre-installing Rust cross-compilation tools during docker build..."; \
     mise trust --all; \

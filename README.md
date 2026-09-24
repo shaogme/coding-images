@@ -601,7 +601,8 @@ RUN mkdir -p /etc/mise /usr/local/share/mise /data/cache/mise
 FROM ${BUILDER_IMAGE} AS mise-tools
 COPY --from=runtime-base /etc/mise /etc/mise
 COPY .config/mise.toml /etc/mise/conf.d/10-project.toml
-RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
+    if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
     mise trust --all; \
     mise lock --global --platform linux-x64,linux-arm64; \

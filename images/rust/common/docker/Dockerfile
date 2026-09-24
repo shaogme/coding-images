@@ -30,7 +30,8 @@ COPY --from=runtime-base /usr/local/share/mise /usr/local/share/mise
 COPY --from=runtime-base /data/cache/mise /data/cache/mise
 COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
 
-RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN,required=false \
+RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
+    if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
     mise trust --all; \
