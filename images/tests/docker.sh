@@ -75,7 +75,10 @@ grep -Fq '"NIX_PATH"' <<<"$environment"
 
 if [[ "$target" == rust-common ]]; then
     grep -Fq '"RUSTC_WRAPPER"' <<<"$environment"
-    grep -Fq '"CARGO_INCREMENTAL"' <<<"$environment"
+    if grep -Fq '"CARGO_INCREMENTAL"' <<<"$environment"; then
+        echo "CARGO_INCREMENTAL must be unset while sccache is enabled" >&2
+        exit 1
+    fi
     grep -Fq '"CARGO_TARGET_DIR"' <<<"$environment"
     grep -Fq '"SCCACHE_DIR"' <<<"$environment"
 
@@ -103,6 +106,7 @@ if [[ "$target" == rust-common ]]; then
         --env CARGO_INCREMENTAL=1 \
         --env CARGO_TARGET_DIR=/tmp/rust-target \
         --env SCCACHE_DIR=/tmp/sccache \
+        --env SCCACHE_DISABLE=1 \
         --entrypoint /usr/bin/dev-env \
         "$image" print --format json)"
     grep -Fq '"CARGO_INCREMENTAL":"1"' <<<"$overridden_environment"

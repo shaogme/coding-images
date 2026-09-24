@@ -8,10 +8,16 @@ MISE_RUSTUP_HOME = "/usr/local/share/rustup"
 CARGO_HOME = "/usr/local/share/cargo"
 MISE_CARGO_HOME = "/usr/local/share/cargo"
 PNPM_HOME = "/usr/local/share/pnpm"
-RUSTC_WRAPPER = "sccache"
 SCCACHE_DIR = "/data/cache/sccache"
 SCCACHE_IGNORE_SERVER_IO_ERROR = "1"
-CARGO_INCREMENTAL = "0"
+
+[config.environment.conditional_variables.RUSTC_WRAPPER]
+value = "sccache"
+when = "features.sccache.enabled && !features.sccache.disabled"
+
+[config.environment.conditional_variables.CARGO_INCREMENTAL]
+value = "0"
+when = "!features.sccache.enabled || features.sccache.disabled"
 
 [override."environment.path.append"]
 op = "append"
@@ -20,4 +26,26 @@ reason = "add the cargo and pnpm bin directories to the inherited runtime path"
 
 [config.features.sccache]
 enabled = true
+disabled = false
 default_wrapper = "sccache"
+
+[inputs.CARGO_INCREMENTAL]
+target = "environment.conditional_variables.CARGO_INCREMENTAL.value"
+type = "enum"
+values = ["0", "1"]
+runtime = true
+
+[inputs.SCCACHE_DIR]
+target = "environment.variables.SCCACHE_DIR"
+type = "path"
+runtime = true
+
+[inputs.SCCACHE_DISABLE]
+target = "features.sccache.disabled"
+type = "bool"
+runtime = true
+
+[inputs.ENABLE_SCCACHE]
+target = "features.sccache.enabled"
+type = "bool"
+runtime = true
