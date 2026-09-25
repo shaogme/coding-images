@@ -1,44 +1,64 @@
-# Base configuration for the application
+x-podman-engine: &podman-engine
+  image: ghcr.io/shaogme/nixos-dockers/podman:${NIXOS_DOCKERS_VERSION:-latest}
+  command: ["podman", "system", "service", "--time=0", "unix:///run/podman/podman.sock"]
+  environment:
+    - PODMAN_SOCKET_GID=${PODMAN_SOCKET_GID:-1000}
+    - PODMAN_SOCKET_MODE=${PODMAN_SOCKET_MODE:-0660}
+  volumes:
+    - podman-socket:/run/podman
+    - podman-data:/var/lib/containers
+    - .:/workspace
+  user: "0:0"
+  cgroupns: private
+  cap_drop: [ALL]
+  cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, MKNOD, NET_ADMIN, NET_RAW, SETFCAP, SETGID, SETPCAP, SETUID, SYS_ADMIN, SYS_CHROOT]
+  security_opt: ["seccomp:unconfined", "apparmor:unconfined", "systempaths=unconfined"]
+  devices:
+    - /dev/fuse:/dev/fuse
+  healthcheck:
+    test: ["CMD-SHELL", "podman info --remote --url unix:///run/podman/podman.sock >/dev/null 2>&1"]
+    interval: 2s
+    timeout: 3s
+    retries: 30
+
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/qemu-common:latest
   environment:
-    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
-    - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
-  cap_add:
-    - SYS_ADMIN
-    - NET_ADMIN
-    - SYS_PTRACE
-  security_opt:
-    - seccomp:unconfined
-    - apparmor:unconfined
+    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0}
+    - HOST_UID
+    - HOST_GID
+    - PODMAN_SOCKET_GID=${PODMAN_SOCKET_GID:-1000}
+    - CONTAINER_HOST=unix:///run/podman/podman.sock
+    - DOCKER_HOST=unix:///run/podman/podman.sock
+  # QEMU uses NET_ADMIN to configure its explicit TAP bridge.
+  cap_add: [NET_ADMIN]
+  security_opt: ["seccomp:unconfined", "apparmor:unconfined"]
   devices:
-    - /dev/kvm:/dev/kvm # Hardware acceleration for KVM virtualization
-    - /dev/net/tun:/dev/net/tun # TAP/TUN devices for QEMU & Podman virtual networking
-    - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
+    - /dev/kvm:/dev/kvm # QEMU KVM acceleration
+    - /dev/net/tun:/dev/net/tun # QEMU TAP networking
   tty: true
 
 services:
-  # Develop mode: Mounts local directory for hot-reloading (Default)
+  podman:
+    <<: *podman-engine
   dev:
     <<: *app-base
     container_name: qemu-common-dev
+    depends_on:
+      podman:
+        condition: service_healthy
     volumes:
-      # Mount host source code
       - .:/workspace
-      # Persist cache
+      - podman-socket:/run/podman
       - cache:/data/cache
-      # Persist VM images, cloud-init seeds, and QEMU disks
       - qemu-data:/data/qemu
-      # Persist Podman containers and cached container images
-      - podman-containers:/var/lib/containers
-      # Persist devbox data
       - devbox-data:/data/devbox
-      # Persist unified AI credentials and tool configurations
       - coding-config:/data/coding-config
 
 volumes:
-  qemu-data:
+  podman-socket:
+  podman-data:
   cache:
-  podman-containers:
+  qemu-data:
   devbox-data:
   coding-config:

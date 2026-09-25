@@ -1,6 +1,6 @@
 # Coding Images
 
-Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `podman` / `npins-common` -> `rust-common` / `qemu-common` -> `rust-wasm` / `rust-cross` / `npins-rust` / `qemu-rust-common` -> `qemu-rust-cross`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链，旨在为开发者提供开箱即用、环境一致且极低维护成本的编程工作区。
+Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓库。所有镜像均基于 NixOS 与 mise 版本管理器构建，原生支持 `linux/amd64` 与 `linux/arm64` 双架构，采用树状分层继承架构（`common` -> `podman` / `npins-common` -> `rust-common` / `qemu-common` -> `rust-wasm` / `rust-cross` / `npins-rust` / `qemu-rust-common` -> `qemu-rust-cross`），集成了主流 AI 编程助手 CLI（OpenAI Codex、Claude Code、OpenCode、Antigravity CLI）以及现代语言与工具链。需要运行容器时，工具层通过同一 Compose 项目中的独立 `nixos-dockers/podman` engine 使用 Unix socket。
 
 ---
 
@@ -10,7 +10,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - [镜像继承拓扑与环境清单](#镜像继承拓扑与环境清单)
   - [继承关系拓扑图](#继承关系拓扑图)
   - [1. common (基础开发环境)](#1-common-基础开发环境)
-  - [2. podman (Podman 容器引擎环境)](#2-podman-podman-容器引擎环境)
+  - [2. podman (Podman 远程客户端工具层)](#2-podman-podman-远程客户端工具层)
   - [3. npins-common (Nix/npins 通用环境)](#3-npins-common-nixnpins-通用环境)
   - [4. rust-common (Rust 核心开发环境)](#4-rust-common-rust-核心开发环境)
   - [5. qemu-common (QEMU 虚拟机与配套设施环境)](#5-qemu-common-qemu-虚拟机与配套设施环境)
@@ -68,21 +68,22 @@ flowchart TD
     
     Common["【层级 0】common<br/>• bubblewrap<br/>• Python + AI 编码工具套件<br/>• 通用 CLI (devbox, jq, ripgrep, gh)<br/>• container-init + dev-env runtime"]
 
-    Podman["【层级 1】podman<br/>• Podman (Daemonless 容器引擎)<br/>• crun / conmon<br/>• docker / docker-compose 伪装包装器"]
+    Podman["【层级 1】podman 客户端<br/>• Podman remote CLI / podman-compose<br/>• docker / docker-compose 兼容入口<br/>• 通过 Unix socket 访问独立 engine"]
+    Engine["nixos-dockers/podman engine<br/>• rootful Podman service<br/>• crun / conmon / netavark<br/>• podman-socket + podman-data"]
     
     NpinsCommon["【层级 1】npins-common<br/>• nixpkgs.npins"]
 
-    RustCommon["【层级 2】rust-common<br/>• Node.js / pnpm / yarn<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / cargo-binstall<br/>• sccache / cargo-sweep<br/>• 内置 Podman 容器运行时"]
+    RustCommon["【层级 2】rust-common<br/>• Node.js / pnpm / yarn<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / cargo-binstall<br/>• sccache / cargo-sweep<br/>• 通过 socket 使用 Podman engine"]
 
     QemuCommon["【层级 2】qemu-common<br/>• QEMU (多架构系统模拟与虚拟化)<br/>• OVMF (UEFI 固件)<br/>• swtpm (软件 TPM 模拟器)<br/>• cloud-utils (cloud-localds 种子生成)<br/>• xorriso / mtools (ISO 与磁盘工具)<br/>• dnsmasq / bridge-utils / socat (虚拟网络)<br/>• /dev/kvm 硬件加速支持"]
     
     RustWasm["【层级 3】rust-wasm<br/>• wasm32 交叉编译 Target<br/>• wasm-pack / wasm-bindgen / wasmi<br/>• Headless Firefox / geckodriver"]
     
-    RustCross["【层级 3】rust-cross<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild<br/>• 复用底座 Podman 容器引擎"]
+    RustCross["【层级 3】rust-cross<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild<br/>• 通过远程 Podman socket"]
 
     NpinsRust["【层级 3】npins-rust<br/>• nixpkgs.npins"]
 
-    QemuRustCommon["【层级 3】qemu-rust-common<br/>• QEMU 全套虚拟化与系统仿真<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / sccache / cargo-binstall<br/>• /dev/kvm 硬件加速与 Podman 容器引擎"]
+    QemuRustCommon["【层级 3】qemu-rust-common<br/>• QEMU 全套虚拟化与系统仿真<br/>• Rust (stable & nightly + rust-src)<br/>• cargo-nextest / sccache / cargo-binstall<br/>• /dev/kvm 硬件加速与远程 Podman"]
 
     QemuRustCross["【层级 4】qemu-rust-cross<br/>• cross (Rust 多目标交叉编译)<br/>• cargo-zigbuild<br/>• QEMU 全套虚拟机与仿真运行环境<br/>• 结合 Podman + QEMU 跨架构调试与验证"]
 
@@ -94,6 +95,7 @@ flowchart TD
     Builder -.->|builder lineage root| QemuRustCommon
     QemuRustCommon -.->|builder parent| QemuRustCross
     Common --> Podman
+    Podman -.-> Engine
     Common --> NpinsCommon
     Podman --> RustCommon
     Podman --> QemuCommon
@@ -134,18 +136,19 @@ flowchart TD
 `common` 的全局工具由 builder stage 安装后通过白名单 `rsync` 同步到 runtime。`mise-builder` 本身不包含
 `container-init`、`dev-env` 或运行时 Bash shim，不能作为开发容器直接运行。
 
-### 2. podman (Podman 容器引擎环境)
+### 2. podman (Podman 远程客户端工具层)
 
-在 `common` 基础上扩展 Podman 容器运行时环境，原生支持免守护进程容器执行（DinD/PinP）。
+在 `common` 基础上提供 Podman 远程 CLI 和 Compose 客户端。容器服务运行在独立的
+`ghcr.io/shaogme/nixos-dockers/podman` engine 中，客户端没有本地 daemon、存储目录或
+嵌套 cgroup 权限。
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/podman:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/common:latest`
 - **Builder**：passthrough，复用 `common` builder artifact，不生成新的 builder archive
 - **包含 common 的所有环境**，并额外增加：
-  - **系统包（Nix）**：`podman`、`crun`、`conmon`、`podman-compose`
-  - **Docker 命令与编排透明兼容**：通过 `dev-env` 声明式提供 `/usr/local/bin/docker` 与 `/usr/local/bin/docker-compose` 符号链接及 `/var/run/docker.sock` 软链接；完整支持 `docker compose`、`docker-compose`、`podman compose` 与 `podman-compose`
-  - **容器引擎配置**：预置 `/etc/containers/containers.conf`（`cgroupfs` 资源管理器、`file` 事件日志、`crun` 运行时、`podman-compose` 编排提供器）
-  - **单一卷持久化**：统一通过 `podman-containers:/var/lib/containers` 独立命名卷持久化容器及镜像；`dev-env` 自动建立软链接使 `root`（`/var/lib/containers/storage`）与 `dev`（`/var/lib/containers/dev/storage`）互不冲突地共用该单一卷持久化数据
+  - **系统包（Nix）**：Podman CLI 与 `podman-compose`，不安装 `crun`、`conmon` 或 engine 配置
+  - **统一远程入口**：`CONTAINER_HOST` 和 `DOCKER_HOST` 默认指向 `unix:///run/podman/podman.sock`，`docker`、`docker-compose`、`podman` 与 `podman-compose` 在 socket 缺失时直接报错
+  - **Compose 双服务**：`dev` 与 `podman` 共享 `podman-socket`、`podman-data` 和 `/workspace`；镜像、容器生命周期及 bind mount 由 engine 决定
 
 ### 3. npins-common (Nix/npins 通用环境)
 
@@ -158,12 +161,12 @@ flowchart TD
 
 ### 4. rust-common (Rust 核心开发环境)
 
-专为 Rust 核心开发打造的完整环境，直接基于 `podman` 镜像构建，全量具备开箱即用的 Podman 容器运行时，集成稳定版与每日构建版编译器及前端辅助工具链。
+专为 Rust 核心开发打造的完整环境，直接基于 `podman` 客户端镜像构建，通过 Compose 连接独立 Podman engine，集成稳定版与每日构建版编译器及前端辅助工具链。
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/podman:latest`
 - **Builder parent**：`common` builder artifact
-- **包含 podman 的所有环境**（具备开箱即用的 Podman 容器运行时），并额外增加：
+- **包含 podman 的所有环境**（通过远程 socket 使用 Podman），并额外增加：
   - **开发语言与运行时（mise）**：
     - Rust: `stable`（包含 `rust-src` 源码组件）
     - Rust: `nightly`（包含 `rust-src` 源码组件）
@@ -178,12 +181,12 @@ flowchart TD
 
 ### 5. qemu-common (QEMU 虚拟机与配套设施环境)
 
-在 `podman` 镜像基础上深度扩展完整 QEMU 虚拟化与系统仿真环境，同时具备 Podman 容器引擎与免守护进程的虚拟机运行能力，支持 UEFI 引导、vTPM 2.0、Cloud-Init 快速部署与虚拟网桥。
+在 `podman` 客户端镜像基础上深度扩展完整 QEMU 虚拟化与系统仿真环境，同时通过独立 engine 使用 Podman，支持 UEFI 引导、vTPM 2.0、Cloud-Init 快速部署与虚拟网桥。
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/podman:latest`
 - **Builder**：passthrough，复用 `common` builder artifact，不生成新的 builder archive
-- **包含 podman 的所有环境**（具备开箱即用的 Podman 容器运行时与 Docker 透明伪装），并额外增加：
+- **包含 podman 的所有环境**（通过远程 socket 使用 Podman 与 Docker 兼容入口），并额外增加：
   - **系统包（Nix）**：
     - `qemu`：多架构系统模拟器（`qemu-system-x86_64`、`qemu-system-aarch64` 等）、虚拟磁盘管理（`qemu-img`）、网络块设备（`qemu-nbd`）
     - `OVMF.fd`：UEFI 固件套件（自动软链接至 `/usr/share/OVMF/` 与 `/usr/share/qemu/`）
@@ -193,8 +196,8 @@ flowchart TD
     - `dnsmasq`、`bridge-utils`、`socat`：虚拟网络桥接、DHCP/DNS 服务分配与 QMP 控制套接字中继
   - **硬件加速与无缝权限映射**：
     - 预建 `kvm` 用户组并自动将 `dev` 用户加入该组
-    - Compose / Dev Container 显式传入 `/dev/kvm`、`/dev/net/tun` 与 `/dev/fuse`；设备节点权限由宿主机和容器运行时控制，镜像启动不会尝试修改宿主设备
-  - **Docker Compose 支持**：提供 `devices: [/dev/kvm, /dev/net/tun, /dev/fuse]` 与 `qemu-data:/data/qemu` 独立持久化卷（用于持久化 VM 镜像与 cloud-init 配置文件）
+    - Compose / Dev Container 仅为 QEMU 显式传入 `/dev/kvm` 与 `/dev/net/tun`；Podman 的 `/dev/fuse` 只挂载到独立 engine
+  - **Docker Compose 支持**：提供 `devices: [/dev/kvm, /dev/net/tun]` 与 `qemu-data:/data/qemu` 独立持久化卷（用于持久化 VM 镜像与 cloud-init 配置文件）
 
 ### 6. npins-rust (Nix/npins + Rust 环境)
 
@@ -220,15 +223,16 @@ flowchart TD
 
 ### 8. rust-cross (Rust 交叉编译与容器环境)
 
-在 `rust-common` 基础上扩展 Rust 交叉编译套件，直接复用底座由 `podman` 镜像赋予的容器引擎能力，原生支持在容器内免后台守护进程执行 `cross` 多架构交叉编译。
+在 `rust-common` 基础上扩展 Rust 交叉编译套件，通过共享 Unix socket 使用独立 Podman
+engine，原生支持在容器内执行 `cross` 多架构交叉编译。
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/rust-cross:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/rust-common:latest`
 - **Builder parent**：`rust-common` builder artifact
-- **包含 rust-common 的所有环境**（直接继承底层 Podman 容器引擎），并额外增加：
+- **包含 rust-common 的所有环境**（通过远程 Podman socket），并额外增加：
   - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
-  - **轻量解耦设计**：Podman、运行时配置与 Docker 透明伪装已由基础层 `podman` / `rust-common` 提供，`rust-cross` 聚焦于跨平台编译工具链本身，杜绝重复安装
-  - **Docker Compose 支持**：继承统一的 `devices: [/dev/fuse, /dev/net/tun]` 与 `podman-containers` 命名卷持久化机制
+  - **轻量解耦设计**：Podman 客户端与 Docker 兼容入口由基础层提供，`rust-cross` 聚焦于跨平台编译工具链
+  - **Docker Compose 支持**：继承统一的 `podman-socket` 与 `podman-data` 双服务拓扑
 
 ### 9. qemu-rust-common (QEMU + Rust 核心开发环境)
 
@@ -237,7 +241,7 @@ flowchart TD
 - **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-rust-common:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/qemu-common:latest`
 - **Builder parent**：`qemu-common` builder lineage（内容复用 `common` builder artifact）
-- **包含 qemu-common 的所有环境**（具备开箱即用的 QEMU 全套组件、OVMF 固件、swtpm、KVM 硬件加速与 Podman 容器运行时），并额外增加：
+- **包含 qemu-common 的所有环境**（具备 QEMU 全套组件、OVMF 固件、swtpm、KVM 硬件加速与远程 Podman 客户端），并额外增加：
   - **开发语言与运行时（mise）**：
     - Rust: `stable`（包含 `rust-src` 源码组件）
     - Rust: `nightly`（包含 `rust-src` 源码组件）
@@ -247,17 +251,18 @@ flowchart TD
     - `sccache`（编译缓存工具）
     - `cargo-sweep`（构建产物清理工具）
   - **硬件加速与统一持久化**：
-    - 预置 `/dev/kvm`、`/dev/net/tun`、`/dev/fuse` 节点支持与 `kvm` 用户组
-    - 支持 `qemu-data:/data/qemu`、`rust-target:/data/.cargo/target`、`cache:/data/cache`、`podman-containers` 与统一 `coding-config`
+    - 预置 `/dev/kvm`、`/dev/net/tun` 节点支持与 `kvm` 用户组；`/dev/fuse` 只属于 engine 服务
+    - 支持 `qemu-data:/data/qemu`、`rust-target:/data/.cargo/target`、`cache:/data/cache`、`podman-socket` 与统一 `coding-config`
 
 ### 10. qemu-rust-cross (QEMU + Rust 交叉编译与仿真运行环境)
 
-在 `qemu-rust-common` 基础上扩展 Rust 跨架构交叉编译工具链，结合底座内置的 Podman 容器引擎与 QEMU 仿真/虚拟化环境，原生支持 `cross` 多目标构建并能在容器内直接利用 QEMU 模拟目标架构或启动轻量虚拟机进行执行、测试与验证。
+在 `qemu-rust-common` 基础上扩展 Rust 跨架构交叉编译工具链，结合独立 Podman engine
+与 QEMU 仿真/虚拟化环境，原生支持 `cross` 多目标构建并能直接利用 QEMU 模拟目标架构。
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/qemu-rust-cross:latest`
 - **基础镜像**：`ghcr.io/shaogme/coding-images/qemu-rust-common:latest`
 - **Builder parent**：`qemu-rust-common` builder artifact
-- **包含 qemu-rust-common 的所有环境**（具备 QEMU 仿真环境、KVM 加速、Rust 编译器套件与 Podman 引擎），并额外增加：
+- **包含 qemu-rust-common 的所有环境**（具备 QEMU 仿真环境、KVM 加速、Rust 编译器套件与远程 Podman 客户端），并额外增加：
   - **交叉编译工具链**：`cross`（官方多目标交叉编译 CLI，基于 `cargo-binstall` 安装）、`cargo-zigbuild`
   - **cross 运行时引擎指定**：预置 `CROSS_CONTAINER_ENGINE=podman`
   - **跨架构全链路闭环**：通过 cross 完成跨平台编译，借助 QEMU 系统与用户态模拟直接测试目标产物，开箱即用
@@ -282,10 +287,10 @@ flowchart TB
             NixBase["Nix: bubblewrap"]
         end
 
-        subgraph PodmanLayer["2. podman 镜像层"]
-            NixPodman["Nix: podman / crun / conmon"]
-            Wrappers["docker / docker-compose 伪装包装器"]
-            ContainersConf["/etc/containers/containers.conf 配置"]
+        subgraph PodmanLayer["2. podman 客户端层"]
+            NixPodman["Nix: Podman remote CLI / podman-compose"]
+            Wrappers["docker / docker-compose 兼容入口"]
+            SocketEnv["CONTAINER_HOST / DOCKER_HOST"]
         end
 
         subgraph RustLayer["3. rust-common 镜像层 (20-rust.toml)"]
@@ -312,7 +317,7 @@ flowchart TB
         end
 
         subgraph QemuRustCommonLayer["4. qemu-rust-common 镜像层 (20-rust.toml)"]
-            QemuRustTools["Rust stable & nightly + cargo tools<br/>复用底座 QEMU + Podman"]
+            QemuRustTools["Rust stable & nightly + cargo tools<br/>复用底座 QEMU + 远程 Podman"]
         end
 
         subgraph QemuRustCrossLayer["5. qemu-rust-cross 镜像层 (30-cross.toml)"]
@@ -433,67 +438,92 @@ docker run -it --rm \
   -e HOST_UID=$(id -u):$(id -g) \
   -v $(pwd):/workspace \
   -v coding-config:/data/coding-config \
-  --cap-add=SYS_ADMIN \
   --cap-add=SYS_PTRACE \
-  --security-opt apparmor=unconfined \
-  --security-opt seccomp=unconfined \
   ghcr.io/shaogme/coding-images/rust-wasm:latest bash
 ```
 
+上面的直接运行方式只适用于不调用 Podman 的工具。需要执行 `podman`、`docker` 或
+`cross` 时使用 Compose 双服务，并显式传入开发用户的 GID：
+
+```bash
+PODMAN_SOCKET_GID=$(id -g) docker compose up -d podman dev
+docker compose exec dev bash
+```
+
+`CONTAINER_HOST` 与 `DOCKER_HOST` 都固定为
+`unix:///run/podman/podman.sock`。`podman-data` 只挂载到 engine；旧的
+`podman-containers:/var/lib/containers` 卷不会自动迁移。
+
 ### 使用 Docker Compose 进行开发
 
-以 `images/rust/common` 为例，标准的 `docker-compose.yml` 编排配置如下：
+以 `images/rust/common` 为例，Compose 项目必须同时启动开发工具容器和独立
+`nixos-dockers/podman` engine。两个服务必须看到同一个 `/workspace` 路径；客户端只
+挂载 Unix socket，不能挂载 engine 存储目录。
 
 ```yaml
-# Base configuration for the application
+x-podman-engine: &podman-engine
+  image: ghcr.io/shaogme/nixos-dockers/podman:${NIXOS_DOCKERS_VERSION:-latest}
+  command: ["podman", "system", "service", "--time=0", "unix:///run/podman/podman.sock"]
+  environment:
+    - PODMAN_SOCKET_GID=${PODMAN_SOCKET_GID:-1000}
+    - PODMAN_SOCKET_MODE=${PODMAN_SOCKET_MODE:-0660}
+  volumes:
+    - podman-socket:/run/podman
+    - podman-data:/var/lib/containers
+    - .:/workspace
+  user: "0:0"
+  cgroupns: private
+  cap_drop: [ALL]
+  cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, MKNOD, NET_ADMIN, NET_RAW, SETFCAP, SETGID, SETPCAP, SETUID, SYS_ADMIN, SYS_CHROOT]
+  security_opt: ["seccomp:unconfined", "apparmor:unconfined", "systempaths=unconfined"]
+  devices:
+    - /dev/fuse:/dev/fuse
+  healthcheck:
+    test: ["CMD-SHELL", "podman info --remote --url unix:///run/podman/podman.sock >/dev/null 2>&1"]
+    interval: 2s
+    timeout: 3s
+    retries: 30
+
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/rust-common:latest
   environment:
-    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
-    - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
-    - CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-0} # Disabled by default for sccache caching compatibility
-    - CARGO_TARGET_DIR=/data/.cargo/target # Isolate Rust target directory to persistent data volume
-    - SCCACHE_DIR=/data/cache/sccache # Directory for sccache compiler cache storage
-    - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0} # Set to 1 to explicitly disable sccache
-  security_opt:
-    - seccomp:unconfined
-    - apparmor:unconfined
-    - systempaths:unconfined
-  cap_add:
-    - SYS_ADMIN
-    - NET_ADMIN
-    - SYS_PTRACE
-  devices:
-    - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
-    - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
+    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0}
+    - HOST_UID
+    - HOST_GID
+    - PODMAN_SOCKET_GID=${PODMAN_SOCKET_GID:-1000}
+    - CONTAINER_HOST=unix:///run/podman/podman.sock
+    - DOCKER_HOST=unix:///run/podman/podman.sock
+    - CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-0}
+    - CARGO_TARGET_DIR=/data/.cargo/target
+    - SCCACHE_DIR=/data/cache/sccache
+    - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0}
+  cap_add: [SYS_PTRACE]
   tty: true
 
 services:
-  # Develop mode: Mounts local directory for hot-reloading (Default)
+  podman:
+    <<: *podman-engine
   dev:
     <<: *app-base
     container_name: rust-common-dev
+    depends_on:
+      podman:
+        condition: service_healthy
     volumes:
-      # Mount host source code
       - .:/workspace
-      # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
+      - podman-socket:/run/podman
       - rust-target:/data/.cargo/target
-      # Persist Cargo dependencies, crate index, and git checkouts
       - cargo:/data/cargo
-      # Persist cache
       - cache:/data/cache
-      # Persist Podman containers and cached container images
-      - podman-containers:/var/lib/containers
-      # Persist devbox data
       - devbox-data:/data/devbox
-      # Persist unified AI credentials and tool configurations
       - coding-config:/data/coding-config
 
 volumes:
+  podman-socket:
+  podman-data:
   rust-target:
   cargo:
   cache:
-  podman-containers:
   devbox-data:
   coding-config:
 
@@ -503,7 +533,7 @@ volumes:
 
 ```bash
 cd images/rust/common
-docker compose up -d dev
+PODMAN_SOCKET_GID=$(id -g) docker compose up -d podman dev
 docker compose exec dev bash
 ```
 
@@ -512,6 +542,10 @@ docker compose exec dev bash
 现代 IDE（VS Code、Cursor、Zed、DevPod 等）已广泛支持并原生依赖 [Dev Containers 规范](https://containers.dev)（`.devcontainer/devcontainer.json`）。
 
 Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化 `.devcontainer/devcontainer.json`，把安全能力（`cap_add`）、安全配置（`security_opt`）、环境变量以及持久化挂载统一声明为工业标准规范：
+
+使用 Podman 的工作区应通过对应目录的 Compose 文件启动 `podman` 与 `dev` 两个服务。
+Dev Container 只挂载 `podman-socket`，不请求 Podman 专用 capability/device，也不挂载
+`/var/lib/containers`；engine 的 `podman-data` 由 Compose 单独管理。
 
 以 `images/rust/wasm/.devcontainer/devcontainer.json` 为例：
 
@@ -522,21 +556,9 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "remoteUser": "dev",
-  "capAdd": [
-    "SYS_ADMIN",
-    "NET_ADMIN",
-    "SYS_PTRACE"
-  ],
-  "securityOpt": [
-    "seccomp=unconfined",
-    "apparmor=unconfined",
-    "systempaths=unconfined"
-  ],
-  "runArgs": [
-    "--device=/dev/fuse",
-    "--device=/dev/net/tun"
-  ],
   "containerEnv": {
+    "CONTAINER_HOST": "unix:///run/podman/podman.sock",
+    "DOCKER_HOST": "unix:///run/podman/podman.sock",
     "CARGO_INCREMENTAL": "0",
     "CARGO_TARGET_DIR": "/data/.cargo/target",
     "SCCACHE_DIR": "/data/cache/sccache"
@@ -545,7 +567,7 @@ Coding Images 为各层级镜像及仓库根目录均内置了对应的标准化
     "source=rust-target,target=/data/.cargo/target,type=volume",
     "source=cargo,target=/data/cargo,type=volume",
     "source=cache,target=/data/cache,type=volume",
-    "source=podman-containers,target=/var/lib/containers,type=volume",
+    "source=podman-socket,target=/run/podman,type=volume",
     "source=devbox-data,target=/data/devbox,type=volume",
     "source=coding-config,target=/data/coding-config,type=volume"
   ],

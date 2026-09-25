@@ -4,21 +4,12 @@
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "remoteUser": "dev",
-  "capAdd": [
-    "SYS_ADMIN",
-    "NET_ADMIN"
-  ],
-  "securityOpt": [
-    "seccomp=unconfined",
-    "apparmor=unconfined",
-    "systempaths=unconfined"
-  ],
-  "runArgs": [
-    "--device=/dev/fuse",
-    "--device=/dev/net/tun"
-  ],
+  "containerEnv": {
+    "CONTAINER_HOST": "unix:///run/podman/podman.sock",
+    "DOCKER_HOST": "unix:///run/podman/podman.sock"
+  },
   "mounts": [
-    "source=podman-containers,target=/var/lib/containers,type=volume",
+    "source=podman-socket,target=/run/podman,type=volume",
     "source=devbox-data,target=/data/devbox,type=volume",
     "source=cache,target=/data/cache,type=volume",
     "source=coding-config,target=/data/coding-config,type=volume"

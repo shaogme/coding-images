@@ -1,39 +1,54 @@
-# Base configuration for the application
-x-app-base: &app-base
-  image: ghcr.io/shaogme/coding-images/podman:latest
-  environment:
-    - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0} # Auto-initialize devbox.json if not present
-    - HOST_UID # Set HOST_UID=host_uid[:host_gid] explicitly; otherwise infer the mounted workspace owner
-  cap_add:
-    - SYS_ADMIN
-    - NET_ADMIN
-  security_opt:
-    - seccomp:unconfined
-    - apparmor:unconfined
-  devices:
-    - /dev/fuse:/dev/fuse # Allow fuse-overlayfs inside container
-    - /dev/net/tun:/dev/net/tun # Allow TUN/TAP devices for Podman to create network interfaces
-  tty: true
-
 services:
-  # Develop mode: Mounts local directory for hot-reloading (Default)
-  dev:
-    <<: *app-base
-    container_name: podman-dev
+  podman:
+    image: ghcr.io/shaogme/nixos-dockers/podman:${NIXOS_DOCKERS_VERSION:-latest}
+    command: ["podman", "system", "service", "--time=0", "unix:///run/podman/podman.sock"]
+    environment:
+      - PODMAN_SOCKET_GID=${PODMAN_SOCKET_GID:-1000}
+      - PODMAN_SOCKET_MODE=${PODMAN_SOCKET_MODE:-0660}
     volumes:
-      # Mount host source code
+      - podman-socket:/run/podman
+      - podman-data:/var/lib/containers
       - .:/workspace
-      # Persist Podman containers and cached container images
-      - podman-containers:/var/lib/containers
-      # Persist cache
+    user: "0:0"
+    cgroupns: private
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, MKNOD, NET_ADMIN, NET_RAW, SETFCAP, SETGID, SETPCAP, SETUID, SYS_ADMIN, SYS_CHROOT]
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+      - systempaths=unconfined
+    devices:
+      - /dev/fuse:/dev/fuse
+    healthcheck:
+      test: ["CMD-SHELL", "podman info --remote --url unix:///run/podman/podman.sock >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+
+  dev:
+    image: ghcr.io/shaogme/coding-images/podman:latest
+    depends_on:
+      podman:
+        condition: service_healthy
+    environment:
+      - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0}
+      - HOST_UID
+      - HOST_GID
+      - PODMAN_SOCKET_GID=${PODMAN_SOCKET_GID:-1000}
+      - CONTAINER_HOST=unix:///run/podman/podman.sock
+      - DOCKER_HOST=unix:///run/podman/podman.sock
+    volumes:
+      - .:/workspace
+      - podman-socket:/run/podman
       - cache:/data/cache
-      # Persist devbox data
       - devbox-data:/data/devbox
-      # Persist unified AI credentials and tool configurations
       - coding-config:/data/coding-config
+    tty: true
 
 volumes:
-  podman-containers:
+  podman-socket:
+  podman-data:
   cache:
   devbox-data:
   coding-config:

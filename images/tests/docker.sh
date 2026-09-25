@@ -12,10 +12,16 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 repo_prefix="${REPO_PREFIX:-ghcr.io/shaogme/coding-images}"
 image="${repo_prefix}/${target}:latest"
 container="coding-images-test-${target//\//-}-$$"
+engine_container="coding-images-engine-${target//\//-}-$$"
+engine_image="ghcr.io/shaogme/nixos-dockers/podman:${NIXOS_DOCKERS_VERSION:-latest}"
+socket_volume="coding-images-test-socket-${target//\//-}-$$"
+data_volume="coding-images-test-data-${target//\//-}-$$"
 
 cleanup() {
     local status=$?
     docker rm -f "$container" >/dev/null 2>&1 || true
+    docker rm -f "$engine_container" >/dev/null 2>&1 || true
+    docker volume rm -f "$socket_volume" "$data_volume" >/dev/null 2>&1 || true
     exit "$status"
 }
 trap cleanup EXIT
@@ -24,19 +30,47 @@ command -v docker >/dev/null
 command -v bash >/dev/null
 
 docker_run() {
-    docker run \
-        --cap-add=SYS_ADMIN \
-        --cap-add=NET_ADMIN \
-        --cgroupns=private \
-        --security-opt apparmor=unconfined \
-        --security-opt seccomp=unconfined \
-        --security-opt systempaths=unconfined \
-        --device /dev/fuse --device /dev/net/tun \
-        "$@"
+    local args=()
+    if [[ "$target" == podman ]]; then
+        args+=(--env CONTAINER_HOST=unix:///run/podman/podman.sock
+            --env DOCKER_HOST=unix:///run/podman/podman.sock
+            --volume "$socket_volume:/run/podman")
+    fi
+    docker run "${args[@]}" "$@"
 }
 
 echo "==> building ${image} and its local ancestors"
 REPO_PREFIX="$repo_prefix" "$repo_root/scripts/build_local.sh" "$target"
+
+if [[ "$target" == podman ]]; then
+    echo "==> starting the separate Podman engine"
+    docker volume create "$socket_volume" >/dev/null
+    docker volume create "$data_volume" >/dev/null
+    docker run --detach --name "$engine_container" \
+        --user 0:0 \
+        --cap-drop ALL \
+        --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER \
+        --cap-add MKNOD --cap-add NET_ADMIN --cap-add NET_RAW \
+        --cap-add SETFCAP --cap-add SETGID --cap-add SETPCAP \
+        --cap-add SETUID --cap-add SYS_ADMIN --cap-add SYS_CHROOT \
+        --cgroupns private \
+        --security-opt seccomp=unconfined \
+        --security-opt apparmor=unconfined \
+        --security-opt systempaths=unconfined \
+        --device /dev/fuse \
+        --env PODMAN_SOCKET_GID=1000 \
+        --volume "$socket_volume:/run/podman" \
+        --volume "$data_volume:/var/lib/containers" \
+        --volume "$repo_root:/workspace" \
+        "$engine_image" >/dev/null
+    for _ in {1..60}; do
+        if docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock' >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock'
+fi
 
 echo "==> checking Docker metadata"
 entrypoint="$(docker image inspect --format '{{json .Config.Entrypoint}}' "$image")"
@@ -190,17 +224,9 @@ COMPOSE
         ')"
     grep -Fq "compose-dev-ok" <<<"$dev_compose_output"
 
-    echo "==> checking single volume persistence for root and dev"
-    vol_name="test-podman-vol-${RANDOM}"
-    docker volume create "$vol_name" >/dev/null
-    docker_run --rm \
-        --env RUN_AS_ROOT=1 \
-        -v "$vol_name:/var/lib/containers" \
-        "$image" podman run --rm docker.io/library/alpine:latest echo "vol-root-ok" | grep -Fq "vol-root-ok"
-    docker_run --rm \
-        -v "$vol_name:/var/lib/containers" \
-        "$image" podman run --rm docker.io/library/alpine:latest echo "vol-dev-ok" | grep -Fq "vol-dev-ok"
-    docker volume rm -f "$vol_name" >/dev/null
+    echo "==> checking the shared remote socket under root and dev"
+    docker_run --rm --env RUN_AS_ROOT=1 "$image" podman info --format '{{.Host.RemoteSocket.Path}}' >/dev/null
+    docker_run --rm "$image" podman info --format '{{.Host.RemoteSocket.Path}}' >/dev/null
 fi
 
 echo "==> checking non-root identity handoff"
