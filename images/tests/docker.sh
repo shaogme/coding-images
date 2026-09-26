@@ -12,10 +12,29 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 repo_prefix="${REPO_PREFIX:-ghcr.io/shaogme/coding-images}"
 image="${repo_prefix}/${target}:latest"
 container="coding-images-test-${target//\//-}-$$"
+engine_container="coding-images-engine-${target//\//-}-$$"
+engine_image="ghcr.io/shaogme/nixos-dockers/podman:${NIXOS_DOCKERS_VERSION:-latest}"
+socket_volume="coding-images-test-socket-${target//\//-}-$$"
+data_volume="coding-images-test-data-${target//\//-}-$$"
+compose_file="$repo_root/images/podman/docker-compose.yml"
+compose_project="coding-images-podman-compose-$$"
+compose_command=()
+
+compose() {
+    "${compose_command[@]}" \
+        --project-name "$compose_project" \
+        --file "$compose_file" \
+        "$@"
+}
 
 cleanup() {
     local status=$?
+    if [[ "$target" == podman ]]; then
+        compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+    fi
     docker rm -f "$container" >/dev/null 2>&1 || true
+    docker rm -f "$engine_container" >/dev/null 2>&1 || true
+    docker volume rm -f "$socket_volume" "$data_volume" >/dev/null 2>&1 || true
     exit "$status"
 }
 trap cleanup EXIT
@@ -23,20 +42,63 @@ trap cleanup EXIT
 command -v docker >/dev/null
 command -v bash >/dev/null
 
+if [[ "$target" == podman ]]; then
+    if docker compose version >/dev/null 2>&1; then
+        compose_command=(docker compose)
+    elif command -v docker-compose >/dev/null 2>&1; then
+        compose_command=(docker-compose)
+    else
+        echo "podman image tests require docker compose or docker-compose" >&2
+        exit 127
+    fi
+fi
+
 docker_run() {
-    docker run \
-        --cap-add=SYS_ADMIN \
-        --cap-add=NET_ADMIN \
-        --cgroupns=private \
-        --security-opt apparmor=unconfined \
-        --security-opt seccomp=unconfined \
-        --security-opt systempaths=unconfined \
-        --device /dev/fuse --device /dev/net/tun \
-        "$@"
+    local args=()
+    if [[ "$target" == podman ]]; then
+        args+=(--env CONTAINER_HOST=unix:///run/podman/podman.sock
+            --env DOCKER_HOST=unix:///run/podman/podman.sock
+            --volume "$socket_volume:/run/podman")
+    fi
+    docker run "${args[@]}" "$@"
 }
 
 echo "==> building ${image} and its local ancestors"
-REPO_PREFIX="$repo_prefix" "$repo_root/scripts/build_local.sh" "$target"
+(
+    cd "$repo_root"
+    REPO_PREFIX="$repo_prefix" "$repo_root/scripts/build_local.sh" "$target"
+)
+
+if [[ "$target" == podman ]]; then
+    [[ -f "$compose_file" ]]
+    echo "==> starting the separate Podman engine"
+    docker volume create "$socket_volume" >/dev/null
+    docker volume create "$data_volume" >/dev/null
+    docker run --detach --name "$engine_container" \
+        --user 1000:1000 \
+        --cap-drop ALL \
+        --cap-add SYS_ADMIN \
+        --cap-add SETUID \
+        --cap-add SETGID \
+        --cap-add DAC_OVERRIDE \
+        --cgroupns private \
+        --security-opt seccomp=unconfined \
+        --security-opt systempaths=unconfined \
+        --device /dev/fuse \
+        --device /dev/net/tun \
+        --env PODMAN_SOCKET_GID=1000 \
+        --volume "$socket_volume:/run/podman" \
+        --volume "$data_volume:/var/lib/containers" \
+        --volume "$repo_root:/workspace" \
+        "$engine_image" >/dev/null
+    for _ in {1..60}; do
+        if docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock' >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock'
+fi
 
 echo "==> checking Docker metadata"
 entrypoint="$(docker image inspect --format '{{json .Config.Entrypoint}}' "$image")"
@@ -141,6 +203,25 @@ if [[ "$target" == podman ]]; then
     grep -Fq "dev-docker-bridge-ok" <<<"$dev_output"
     grep -Fq "dev-docker-host-ok" <<<"$dev_output"
 
+    echo "==> running the Podman Compose stack and checking networks from dev"
+    compose up --detach
+    compose_dev_output=""
+    for _ in {1..60}; do
+        if compose_dev_output="$(compose exec --no-TTY dev /bin/bash -lc '
+                set -e
+                podman run --rm --network=bridge docker.io/library/alpine:latest \
+                    /bin/sh -c "printf compose-dev-bridge-ok"
+                podman run --rm --network=host docker.io/library/alpine:latest \
+                    /bin/sh -c "printf compose-dev-host-ok"
+            ' 2>/dev/null)"; then
+            break
+        fi
+        sleep 1
+    done
+    grep -Fq "compose-dev-bridge-ok" <<<"$compose_dev_output"
+    grep -Fq "compose-dev-host-ok" <<<"$compose_dev_output"
+    compose down --volumes --remove-orphans >/dev/null
+
     echo "==> checking compose tooling (docker compose, docker-compose, podman compose, podman-compose) under root"
     root_compose_output="$(docker_run --rm \
         --env RUN_AS_ROOT=1 \
@@ -190,17 +271,9 @@ COMPOSE
         ')"
     grep -Fq "compose-dev-ok" <<<"$dev_compose_output"
 
-    echo "==> checking single volume persistence for root and dev"
-    vol_name="test-podman-vol-${RANDOM}"
-    docker volume create "$vol_name" >/dev/null
-    docker_run --rm \
-        --env RUN_AS_ROOT=1 \
-        -v "$vol_name:/var/lib/containers" \
-        "$image" podman run --rm docker.io/library/alpine:latest echo "vol-root-ok" | grep -Fq "vol-root-ok"
-    docker_run --rm \
-        -v "$vol_name:/var/lib/containers" \
-        "$image" podman run --rm docker.io/library/alpine:latest echo "vol-dev-ok" | grep -Fq "vol-dev-ok"
-    docker volume rm -f "$vol_name" >/dev/null
+    echo "==> checking the shared remote socket under root and dev"
+    docker_run --rm --env RUN_AS_ROOT=1 "$image" podman info --format '{{.Host.RemoteSocket.Path}}' >/dev/null
+    docker_run --rm "$image" podman info --format '{{.Host.RemoteSocket.Path}}' >/dev/null
 fi
 
 echo "==> checking non-root identity handoff"

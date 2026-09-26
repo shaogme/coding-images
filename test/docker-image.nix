@@ -51,6 +51,8 @@ let
         curl
         docker
         docker-compose
+        gnutar
+        gzip
         git
         iproute2
         jq

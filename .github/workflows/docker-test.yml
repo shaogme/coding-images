@@ -7,7 +7,6 @@ on:
       - "images/**"
       - "scripts/build_local.sh"
       - "test/**"
-      - ".github/apparmor/**"
       - ".github/workflows/docker-test.yml"
   push:
     branches:
@@ -17,7 +16,6 @@ on:
       - "images/**"
       - "scripts/build_local.sh"
       - "test/**"
-      - ".github/apparmor/**"
       - ".github/workflows/docker-test.yml"
 
 permissions:
@@ -54,13 +52,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@main
-
-      - name: Allow rootless Podman re-exec under AppArmor
-        if: matrix.target == 'podman'
-        run: |
-          set -Eeuo pipefail
-          sudo apparmor_parser -r .github/apparmor/coding-images-podman
-          sudo aa-status | grep -F 'coding-images-podman' >/dev/null
 
       - name: Run build, deployment, and usability test
         run: ${{ matrix.test }}
