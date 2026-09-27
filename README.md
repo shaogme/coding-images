@@ -471,7 +471,6 @@ x-podman-engine: &podman-engine
     - podman-socket:/run/podman
     - podman-data:/var/lib/containers
     - .:/workspace
-  user: "1000:1000"
   cgroup: private
   cap_drop: [ALL]
   cap_add: [SYS_ADMIN, SETUID, SETGID, DAC_OVERRIDE]

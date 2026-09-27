@@ -75,7 +75,6 @@ if [[ "$target" == podman ]]; then
     docker volume create "$socket_volume" >/dev/null
     docker volume create "$data_volume" >/dev/null
     docker run --detach --name "$engine_container" \
-        --user 1000:1000 \
         --cap-drop ALL \
         --cap-add SYS_ADMIN \
         --cap-add SETUID \

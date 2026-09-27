@@ -11,7 +11,6 @@ services:
       - .:/workspace
     # Rootless outer runtimes keep the engine inside their delegated user and
     # cgroup namespaces. cgroups remain enabled and the namespace is private.
-    user: "1000:1000"
     cgroup: private
     cap_drop: [ALL]
     cap_add:
