@@ -473,8 +473,8 @@ x-podman-engine: &podman-engine
     - .:/workspace
   cgroup: private
   cap_drop: [ALL]
-  cap_add: [SYS_ADMIN, SETUID, SETGID, DAC_OVERRIDE]
-  security_opt: ["seccomp:unconfined", "systempaths:unconfined"]
+  cap_add: [NET_ADMIN, SYS_ADMIN, SYS_CHROOT, SETUID, SETGID, SETPCAP, DAC_OVERRIDE, CHOWN, FOWNER, MKNOD]
+  security_opt: ["seccomp:unconfined", "systempaths:unconfined", "label=disable"]
   group_add:
     - "${PODMAN_SOCKET_GID:-1000}"
   devices:
@@ -499,7 +499,10 @@ x-app-base: &app-base
     - CARGO_TARGET_DIR=/data/.cargo/target
     - SCCACHE_DIR=/data/cache/sccache
     - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0}
-  cap_add: [SYS_PTRACE]
+  cap_add: [NET_ADMIN, SYS_ADMIN, SYS_PTRACE]
+  group_add:
+    - "${PODMAN_SOCKET_GID:-1000}"
+  security_opt: ["seccomp:unconfined", "apparmor:unconfined", "systempaths:unconfined", "label=disable"]
   tty: true
 
 services:
@@ -519,6 +522,8 @@ services:
       - cache:/data/cache
       - devbox-data:/data/devbox
       - coding-config:/data/coding-config
+    group_add:
+      - "${PODMAN_SOCKET_GID:-1000}"
 
 volumes:
   podman-socket:
@@ -528,7 +533,6 @@ volumes:
   cache:
   devbox-data:
   coding-config:
-
 ```
 
 启动并进入开发环境：
@@ -558,6 +562,9 @@ Dev Container 只挂载 `podman-socket`，不请求 Podman 专用 capability/dev
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "remoteUser": "dev",
+  "capAdd": [
+    "SYS_PTRACE"
+  ],
   "containerEnv": {
     "CONTAINER_HOST": "unix:///run/podman/podman.sock",
     "DOCKER_HOST": "unix:///run/podman/podman.sock",

@@ -45,7 +45,7 @@ x-app-base: &app-base
   # NET_ADMIN and the TAP device are QEMU networking requirements; SYS_PTRACE
   # is retained for the Rust debugger.
   cap_add: [NET_ADMIN, SYS_ADMIN, SYS_CHROOT, SETUID, SETGID, SETPCAP, DAC_OVERRIDE, CHOWN, FOWNER, MKNOD]
-  security_opt: ["seccomp:unconfined", "systempaths:unconfined", "label=disable", "unmask=ALL"]
+  security_opt: ["seccomp:unconfined", "systempaths:unconfined", "label=disable"]
   devices:
     - /dev/kvm:/dev/kvm # QEMU KVM acceleration
     - /dev/net/tun:/dev/net/tun # QEMU TAP networking
@@ -72,7 +72,7 @@ services:
   cap_add: [NET_ADMIN, SYS_ADMIN, SYS_PTRACE]
   group_add:
     - "${PODMAN_SOCKET_GID:-1000}"
-  security_opt: ["seccomp:unconfined", "apparmor:unconfined", "label=disable", "unmask=ALL"]
+  security_opt: ["seccomp:unconfined", "apparmor:unconfined", "systempaths:unconfined", "label=disable"]
 
 volumes:
   podman-socket:
