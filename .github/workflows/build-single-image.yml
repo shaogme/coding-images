@@ -87,6 +87,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
+      - name: Require Mise lockfile
+        if: inputs.builder_mode == 'mise'
+        run: |
+          set -Eeuo pipefail
+          test -f "${{ inputs.context }}/.config/mise.toml"
+          test -s "${{ inputs.context }}/.config/mise.lock"
+
       - name: Enable Docker containerd image store
         uses: docker/setup-docker-action@v4
         with:

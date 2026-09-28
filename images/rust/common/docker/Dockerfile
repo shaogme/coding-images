@@ -27,15 +27,15 @@ RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise /data/cache/mise \
     /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
 
 COPY .config/mise.toml /etc/mise/conf.d/20-rust.toml
+COPY .config/mise.lock /etc/mise/mise.lock
+COPY .config/.mise /etc/mise/.mise
 
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
     echo "Pre-installing Rust toolchains and Node tools during docker build..."; \
     mise trust --all; \
-    mise lock --global --platform linux-x64,linux-arm64; \
-    mise install rust@stable; \
-    mise install; \
+    mise install --locked; \
     TRIPLE=$(rustc -vV 2>/dev/null | sed -n 's/host: //p' || echo "$(uname -m)-unknown-linux-gnu"); \
     cd "${RUSTUP_HOME}/toolchains"; \
     LATEST_NIGHTLY=$(ls -d nightly-[0-9]* 2>/dev/null | sort -V | tail -n 1); \

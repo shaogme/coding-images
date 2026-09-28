@@ -21,14 +21,15 @@ RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise /data/cache/mise \
     /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
 
 COPY .config/mise.toml /etc/mise/conf.d/30-cross.toml
+COPY .config/mise.lock /etc/mise/mise.lock
+COPY .config/.mise /etc/mise/.mise
 
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
     echo "Pre-installing Rust cross-compilation tools during docker build..."; \
     mise trust --all; \
-    mise lock --global --platform linux-x64,linux-arm64; \
-    mise install
+    mise install --locked
 
 FROM runtime-base AS runtime
 ARG TARGETARCH

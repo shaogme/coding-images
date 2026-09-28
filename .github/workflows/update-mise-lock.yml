@@ -1,0 +1,74 @@
+name: Update Mise Lockfiles
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      nixos_dockers_version:
+        description: Immutable upstream NixOS Docker tag used to select mise
+        required: false
+        default: latest
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: mise-lock-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Refresh lineage lockfiles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+        with:
+          token: ${{ secrets.PAT }}
+
+      - name: Resolve builder mise version
+        id: builder-mise
+        env:
+          NIXOS_DOCKERS_VERSION: ${{ inputs.nixos_dockers_version || 'latest' }}
+        run: |
+          set -Eeuo pipefail
+          image="ghcr.io/shaogme/nixos-dockers/mise-builder:${NIXOS_DOCKERS_VERSION}"
+          docker pull "$image"
+          version="$(docker run --rm --entrypoint /bin/mise "$image" --version | awk 'NR == 1 { print $1 }')"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install compatible mise
+        uses: jdx/mise-action@v2
+        with:
+          version: ${{ steps.builder-mise.outputs.version }}
+
+      - name: Regenerate lineage lockfiles
+        run: python3 scripts/update_mise_lockfiles.py
+
+      - name: Create pull request and enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -Eeuo pipefail
+          if [ -z "$(git status --porcelain -- ':(glob)images/**/.config/mise.lock' ':(glob)images/**/.config/.mise/**')" ]; then
+            echo 'No mise lockfile changes.'
+            exit 0
+          fi
+          test -n "$GH_TOKEN"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- ':(glob)images/**/.config/mise.lock' ':(glob)images/**/.config/.mise/**'
+          git commit -m 'chore(mise): update lockfiles [skip ci]'
+          branch="mise-lock-update-${GITHUB_RUN_ID}"
+          git push --set-upstream origin "HEAD:$branch"
+          pr_url="$(gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$branch" \
+            --title 'chore(mise): update lockfiles' \
+            --body 'Automated Mise lineage lockfile refresh.')"
+          gh pr merge "$pr_url" --auto --squash --delete-branch

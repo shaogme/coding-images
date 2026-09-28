@@ -126,7 +126,7 @@ flowchart TD
 
 - **镜像地址**：`ghcr.io/shaogme/coding-images/common:latest`
 - **基础镜像**：`ghcr.io/shaogme/nixos-dockers/mise:latest`
-- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`（仅用于 `mise lock/install`）
+- **构建阶段镜像**：`ghcr.io/shaogme/nixos-dockers/mise-builder:<NIXOS_DOCKERS_VERSION>`（仅用于 `mise install --locked`）
 - **系统包（Nix）**：`bubblewrap`（沙箱隔离支持）
 - **开发语言与运行时（mise）**：Python `latest`
 - **AI 辅助工具**：`@openai/codex`、`claude-code`、`opencode`、`antigravity-cli`
@@ -339,7 +339,7 @@ flowchart TB
    - `20-rust.toml` -> 由 `rust-common` 与 `qemu-rust-common` 注入
    - `30-wasm.toml` -> 由 `rust-wasm` 注入（继承并添加 Rust WebAssembly targets）
    - `30-cross.toml` -> 由 `rust-cross` 与 `qemu-rust-cross` 注入（继承并配置 `cross` 交叉编译工具）
-2. **全局版本锁定（Global Lockfile）**：各镜像在构建时通过 `mise lock --global` 固化当前工具链的确定性版本与 options/targets 元数据，杜绝 `nightly` 跨天版本漂移与 Target 继承丢失。
+2. **分层版本锁定（Lineage Lockfile）**：每个含 Mise 增量的镜像层提交包含祖先工具的 `mise.lock`，构建使用 `mise install --locked`，杜绝 `nightly` 跨天版本漂移与 Target 继承丢失；公共 dev-env profile 同样通过 `MISE_LOCKED=1` 保持运行时一致。
 
 ### 统一 container-init 与 dev-env 运行时
 
@@ -611,7 +611,9 @@ Dev Container 只挂载 `podman-socket`，不请求 Podman 专用 capability/dev
 ``` txt
 images/rust/wasm/
 ├── .config/
-│   └── mise.toml         # 该镜像的增量 mise 工具清单 (30-wasm.toml)
+│   ├── mise.toml         # 该镜像的增量 mise 工具清单 (30-wasm.toml)
+│   ├── mise.lock         # common + rust-common + wasm 的双平台 lineage lock
+│   └── .mise/             # npm backend 的锁定 sidecar（如有）
 ├── .devcontainer/
 │   └── devcontainer.json # 对应层级的 Dev Container 标准化配置
 ├── docker/
@@ -621,7 +623,7 @@ images/rust/wasm/
 
 ### Mise builder/runtime 双轨
 
-凡是需要在 Docker 构建阶段执行 `mise trust`、`mise lock` 或 `mise install` 的镜像，
+凡是需要在 Docker 构建阶段执行 `mise trust` 或 `mise install` 的镜像，
 都必须声明 `mise-builder` 和 `runtime` 两个 target。builder parent 与 runtime parent
 是两个独立参数，只有 builder 的受控目录会通过 BuildKit bind mount + `rsync` 进入
 runtime：
@@ -635,12 +637,13 @@ FROM ${RUNTIME_PARENT_IMAGE} AS runtime-base
 
 FROM ${BUILDER_PARENT_IMAGE} AS mise-builder
 COPY .config/mise.toml /etc/mise/conf.d/10-project.toml
+COPY .config/mise.lock /etc/mise/mise.lock
+COPY .config/.mise /etc/mise/.mise
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
     mise trust --all; \
-    mise lock --global --platform linux-x64,linux-arm64; \
-    mise install
+    mise install --locked
 
 FROM runtime-base AS runtime
 RUN nix profile add nixpkgs#rsync
@@ -735,7 +738,8 @@ artifact。merge job 只加载和推送 runtime archive，不创建 builder 标�
 ├── .github/
 │   └── workflows/
 │       ├── build-and-publish.yml    # 5 阶段拓扑编排工作流
-│       └── build-single-image.yml   # 跨架构原生构建与 Manifest 合并复用工作流
+│       ├── build-single-image.yml   # 跨架构原生构建与 Manifest 合并复用工作流
+│       └── update-mise-lock.yml     # 每两小时更新 lineage lock 与 sidecar
 ├── images/
 │   ├── common/
 │   │   ├── .config/

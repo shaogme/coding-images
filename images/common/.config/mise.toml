@@ -10,7 +10,9 @@ pnpm = {
     version = "latest",
     depends = ["node"],
 }
-yarn = {
+# Use Yarn's official CLI distribution package instead of the vfox backend.
+# The npm backend produces a lockable sidecar that works with --locked.
+"npm:@yarnpkg/cli-dist" = {
     version = "latest",
     depends = ["node"],
 }

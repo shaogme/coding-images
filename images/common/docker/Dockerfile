@@ -18,13 +18,14 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
 
 RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise /data/cache/mise
 COPY .config/mise.toml /etc/mise/conf.d/10-common.toml
+COPY .config/mise.lock /etc/mise/mise.lock
+COPY .config/.mise /etc/mise/.mise
 
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
     mise trust --all; \
-    mise lock --global --platform linux-x64,linux-arm64; \
-    mise install; \
+    mise install --locked; \
     chmod -R 1777 /etc/mise /usr/local/share/mise /data/cache/mise; \
     chmod -R a+rwX /etc/mise /data/cache/mise
 

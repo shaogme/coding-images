@@ -135,6 +135,23 @@ def discover_images(images_dir: str, target_filter: str = "all") -> list[dict]:
             "ancestors": json.dumps(runtime_chain[:-1] + ["global"]),
         }
 
+    # A mise lock belongs to the complete runtime lineage. Keep the ordered
+    # config paths in the topology output so lockfile automation does not need
+    # to maintain a second copy of the image dependency graph.
+    for image in discovered.values():
+        config_lineage: list[str] = []
+        for ancestor_name in _runtime_chain(image["image_name"]):
+            ancestor = discovered.get(ancestor_name)
+            if not ancestor:
+                continue
+            config_path = repo_root / ancestor["context"] / ".config/mise.toml"
+            if config_path.is_file():
+                try:
+                    config_lineage.append(config_path.relative_to(repo_root).as_posix())
+                except ValueError:
+                    config_lineage.append(config_path.as_posix())
+        image["mise_config_lineage"] = config_lineage
+
     requested = [
         name for name, image in discovered.items()
         if _matches_target(name, image["rel_path"], target)
