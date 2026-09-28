@@ -10,14 +10,8 @@ x-podman-engine: &podman-engine
     - .:/workspace
   cgroup: private
   cap_drop: [ALL]
-  cap_add:
-    - SYS_ADMIN
-    - SETUID
-    - SETGID
-    - DAC_OVERRIDE
-  security_opt:
-    - seccomp:unconfined
-    - systempaths:unconfined
+  cap_add: [NET_ADMIN, SYS_ADMIN, SYS_CHROOT, SETUID, SETGID, SETPCAP, DAC_OVERRIDE, CHOWN, FOWNER, MKNOD]
+  security_opt: ["seccomp:unconfined", "systempaths:unconfined", "label=disable", "unmask=ALL"]
   group_add:
     - "${PODMAN_SOCKET_GID:-1000}"
   devices:
@@ -45,8 +39,10 @@ x-app-base: &app-base
     - CROSS_CONTAINER_ENGINE=podman
   # NET_ADMIN and the TAP device are QEMU networking requirements; SYS_PTRACE
   # is retained for the Rust debugger.
-  cap_add: [NET_ADMIN, SYS_PTRACE]
-  security_opt: ["seccomp:unconfined", "apparmor:unconfined"]
+  cap_add: [NET_ADMIN, SYS_ADMIN, SYS_PTRACE]
+  group_add:
+    - "${PODMAN_SOCKET_GID:-1000}"
+  security_opt: ["seccomp:unconfined", "apparmor:unconfined", "label=disable", "unmask=ALL"]
   devices:
     - /dev/kvm:/dev/kvm # QEMU KVM acceleration
     - /dev/net/tun:/dev/net/tun # QEMU TAP networking

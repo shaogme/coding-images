@@ -13,14 +13,8 @@ services:
     # cgroup namespaces. cgroups remain enabled and the namespace is private.
     cgroup: private
     cap_drop: [ALL]
-    cap_add:
-      - SYS_ADMIN
-      - SETUID
-      - SETGID
-      - DAC_OVERRIDE
-    security_opt:
-      - seccomp:unconfined
-      - systempaths:unconfined
+    cap_add: [NET_ADMIN, SYS_ADMIN, SYS_CHROOT, SETUID, SETGID, SETPCAP, DAC_OVERRIDE, CHOWN, FOWNER, MKNOD]
+    security_opt: ["seccomp:unconfined", "systempaths:unconfined", "label=disable", "unmask=ALL"]
     group_add:
       - "${PODMAN_SOCKET_GID:-1000}"
     devices:
@@ -51,8 +45,10 @@ services:
       - cache:/data/cache
       - devbox-data:/data/devbox
       - coding-config:/data/coding-config
+    cap_add: [NET_ADMIN, SYS_ADMIN]
     group_add:
       - "${PODMAN_SOCKET_GID:-1000}"
+    security_opt: ["seccomp:unconfined", "apparmor:unconfined", "label=disable", "unmask=ALL"]
     tty: true
 
 volumes:

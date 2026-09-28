@@ -10,14 +10,8 @@ x-podman-engine: &podman-engine
     - .:/workspace
   cgroup: private
   cap_drop: [ALL]
-  cap_add:
-    - SYS_ADMIN
-    - SETUID
-    - SETGID
-    - DAC_OVERRIDE
-  security_opt:
-    - seccomp:unconfined
-    - systempaths:unconfined
+  cap_add: [NET_ADMIN, SYS_ADMIN, SYS_CHROOT, SETUID, SETGID, SETPCAP, DAC_OVERRIDE, CHOWN, FOWNER, MKNOD]
+  security_opt: ["seccomp:unconfined", "systempaths:unconfined", "label=disable", "unmask=ALL"]
   group_add:
     - "${PODMAN_SOCKET_GID:-1000}"
   devices:
@@ -31,6 +25,10 @@ x-podman-engine: &podman-engine
 
 x-app-base: &app-base
   image: ghcr.io/shaogme/coding-images/npins-common:latest
+  cap_add: [NET_ADMIN, SYS_ADMIN]
+  group_add:
+    - "${PODMAN_SOCKET_GID:-1000}"
+  security_opt: ["seccomp:unconfined", "apparmor:unconfined", "label=disable", "unmask=ALL"]
   environment:
     - DEVBOX_AUTO_INIT=${DEVBOX_AUTO_INIT:-0}
     - HOST_UID

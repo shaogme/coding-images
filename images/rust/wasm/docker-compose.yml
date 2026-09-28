@@ -10,14 +10,8 @@ x-podman-engine: &podman-engine
     - .:/workspace
   cgroup: private
   cap_drop: [ALL]
-  cap_add:
-    - SYS_ADMIN
-    - SETUID
-    - SETGID
-    - DAC_OVERRIDE
-  security_opt:
-    - seccomp:unconfined
-    - systempaths:unconfined
+  cap_add: [NET_ADMIN, SYS_ADMIN, SYS_CHROOT, SETUID, SETGID, SETPCAP, DAC_OVERRIDE, CHOWN, FOWNER, MKNOD]
+  security_opt: ["seccomp:unconfined", "systempaths:unconfined", "label=disable", "unmask=ALL"]
   group_add:
     - "${PODMAN_SOCKET_GID:-1000}"
   devices:
@@ -42,7 +36,10 @@ x-app-base: &app-base
     - CARGO_TARGET_DIR=/data/.cargo/target
     - SCCACHE_DIR=/data/cache/sccache
     - SCCACHE_DISABLE=${SCCACHE_DISABLE:-0}
-  cap_add: [SYS_PTRACE]
+  cap_add: [NET_ADMIN, SYS_ADMIN, SYS_PTRACE]
+  group_add:
+    - "${PODMAN_SOCKET_GID:-1000}"
+  security_opt: ["seccomp:unconfined", "apparmor:unconfined", "label=disable", "unmask=ALL"]
   tty: true
 
 services:
