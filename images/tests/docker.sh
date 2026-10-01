@@ -140,12 +140,26 @@ if [[ "$target" == podman ]]; then
         "$engine_image" \
         podman system service --time=0 unix:///run/podman/podman.sock >/dev/null
     for _ in {1..60}; do
+        state="$(docker inspect --format '{{.State.Status}}' "$engine_container" 2>/dev/null || true)"
+        case "$state" in
+            exited|dead)
+                echo "Podman engine container $engine_container exited before creating its socket" >&2
+                docker inspect --format 'exit_code={{.State.ExitCode}} error={{.State.Error}}' \
+                    "$engine_container" >&2 || true
+                docker logs "$engine_container" >&2 || true
+                exit 1
+                ;;
+        esac
         if docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock' >/dev/null 2>&1; then
             break
         fi
         sleep 1
     done
-    docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock'
+    if ! docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock'; then
+        echo "timed out waiting for Podman engine socket in $engine_container" >&2
+        docker logs "$engine_container" >&2 || true
+        exit 1
+    fi
 fi
 
 echo "==> checking Docker metadata"
