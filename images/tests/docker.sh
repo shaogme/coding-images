@@ -63,6 +63,25 @@ docker_run() {
     docker run "${args[@]}" "$@"
 }
 
+wait_for_backend() {
+    local attempt state
+    for attempt in {1..60}; do
+        state="$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || true)"
+        if [[ "$state" != running ]]; then
+            echo "container $container exited before the dev-env backend became ready" >&2
+            docker logs "$container" >&2 || true
+            return 1
+        fi
+        if docker exec "$container" /usr/bin/dev-env backend status >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+    done
+    echo "timed out waiting for the dev-env backend in $container" >&2
+    docker logs "$container" >&2 || true
+    return 1
+}
+
 echo "==> building ${image} and its local ancestors"
 (
     cd "$repo_root"
@@ -314,7 +333,7 @@ docker_run --rm --env RUN_AS_ROOT=1 "$image" /bin/sh -c '
 '
 
 echo "==> checking deployment and docker exec"
-docker_run --detach --name "$container" --env RUN_AS_ROOT=1 "$image" /bin/sh -c 'sleep 30' >/dev/null
+docker_run --detach --name "$container" --env RUN_AS_ROOT=1 "$image" /bin/sh -c 'sleep 120' >/dev/null
 for _ in {1..30}; do
     state="$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || true)"
     case "$state" in
@@ -327,6 +346,7 @@ for _ in {1..30}; do
     sleep 1
 done
 [[ "$(docker inspect --format '{{.State.Running}}' "$container")" == true ]]
+wait_for_backend
 
 docker exec "$container" /usr/bin/dev-env doctor --json | grep -Fq '"ok": true'
 docker exec "$container" /bin/bash -lc 'test -n "$PATH" && test -n "$NIX_PATH"'
