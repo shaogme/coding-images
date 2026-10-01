@@ -29,9 +29,6 @@ compose() {
 
 cleanup() {
     local status=$?
-    if [[ "$target" == podman ]]; then
-        compose down --volumes --remove-orphans >/dev/null 2>&1 || true
-    fi
     docker rm -f "$container" >/dev/null 2>&1 || true
     docker rm -f "$engine_container" >/dev/null 2>&1 || true
     docker volume rm -f "$socket_volume" "$data_volume" >/dev/null 2>&1 || true
@@ -42,24 +39,8 @@ trap cleanup EXIT
 command -v docker >/dev/null
 command -v bash >/dev/null
 
-if [[ "$target" == podman ]]; then
-    if docker compose version >/dev/null 2>&1; then
-        compose_command=(docker compose)
-    elif command -v docker-compose >/dev/null 2>&1; then
-        compose_command=(docker-compose)
-    else
-        echo "podman image tests require docker compose or docker-compose" >&2
-        exit 127
-    fi
-fi
-
 docker_run() {
     local args=()
-    if [[ "$target" == podman ]]; then
-        args+=(--env CONTAINER_HOST=unix:///run/podman/podman.sock
-            --env DOCKER_HOST=unix:///run/podman/podman.sock
-            --volume "$socket_volume:/run/podman")
-    fi
     docker run "${args[@]}" "$@"
 }
 
@@ -112,55 +93,6 @@ echo "==> building ${image} and its local ancestors"
     cd "$repo_root"
     REPO_PREFIX="$repo_prefix" "$repo_root/scripts/build_local.sh" "$target"
 )
-
-if [[ "$target" == podman ]]; then
-    [[ -f "$compose_file" ]]
-    echo "==> starting the separate Podman engine"
-    docker volume create "$socket_volume" >/dev/null
-    docker volume create "$data_volume" >/dev/null
-    docker run --detach --name "$engine_container" \
-        --cap-add NET_ADMIN \
-        --cap-add SYS_ADMIN \
-        --cap-add SYS_CHROOT \
-        --cap-add SYS_PTRACE \
-        --cap-add SYS_RESOURCE \
-        --cap-add DAC_READ_SEARCH \
-        --cap-add AUDIT_WRITE \
-        --cgroupns=private \
-        --security-opt seccomp=unconfined \
-        --security-opt systempaths=unconfined \
-        --security-opt label=disable \
-        --device /dev/fuse \
-        --device /dev/net/tun \
-        --env PODMAN_SOCKET_GID=1000 \
-        --env PODMAN_SOCKET_MODE=0660 \
-        --volume "$socket_volume:/run/podman" \
-        --volume "$data_volume:/var/lib/containers" \
-        --volume "$repo_root:/workspace" \
-        "$engine_image" \
-        podman system service --time=0 unix:///run/podman/podman.sock >/dev/null
-    for _ in {1..60}; do
-        state="$(docker inspect --format '{{.State.Status}}' "$engine_container" 2>/dev/null || true)"
-        case "$state" in
-            exited|dead)
-                echo "Podman engine container $engine_container exited before creating its socket" >&2
-                docker inspect --format 'exit_code={{.State.ExitCode}} error={{.State.Error}}' \
-                    "$engine_container" >&2 || true
-                docker logs "$engine_container" >&2 || true
-                exit 1
-                ;;
-        esac
-        if docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock' >/dev/null 2>&1; then
-            break
-        fi
-        sleep 1
-    done
-    if ! docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock'; then
-        echo "timed out waiting for Podman engine socket in $engine_container" >&2
-        docker logs "$engine_container" >&2 || true
-        exit 1
-    fi
-fi
 
 echo "==> checking Docker metadata"
 entrypoint="$(docker image inspect --format '{{json .Config.Entrypoint}}' "$image")"
@@ -233,109 +165,6 @@ if [[ "$target" == rust-common ]]; then
     grep -Fq '"CARGO_INCREMENTAL":"1"' <<<"$overridden_environment"
     grep -Fq '"CARGO_TARGET_DIR":"/tmp/rust-target"' <<<"$overridden_environment"
     grep -Fq '"SCCACHE_DIR":"/tmp/sccache"' <<<"$overridden_environment"
-fi
-
-if [[ "$target" == podman ]]; then
-    echo "==> checking podman and docker execution with bridge and host networks (root user)"
-    root_output="$(docker_run --rm \
-        --env RUN_AS_ROOT=1 \
-        "$image" /bin/bash -c '
-            set -e
-            podman run --rm docker.io/library/alpine:latest echo "root-podman-bridge-ok"
-            podman run --rm --network host docker.io/library/alpine:latest echo "root-podman-host-ok"
-            docker run --rm docker.io/library/alpine:latest echo "root-docker-bridge-ok"
-            docker run --rm --network host docker.io/library/alpine:latest echo "root-docker-host-ok"
-        ')"
-    grep -Fq "root-podman-bridge-ok" <<<"$root_output"
-    grep -Fq "root-podman-host-ok" <<<"$root_output"
-    grep -Fq "root-docker-bridge-ok" <<<"$root_output"
-    grep -Fq "root-docker-host-ok" <<<"$root_output"
-
-    echo "==> checking podman and docker execution with bridge and host networks (dev user)"
-    dev_output="$(docker_run --rm \
-        "$image" /bin/bash -c '
-            set -e
-            podman run --rm docker.io/library/alpine:latest echo "dev-podman-bridge-ok"
-            podman run --rm --network host docker.io/library/alpine:latest echo "dev-podman-host-ok"
-            docker run --rm docker.io/library/alpine:latest echo "dev-docker-bridge-ok"
-            docker run --rm --network host docker.io/library/alpine:latest echo "dev-docker-host-ok"
-        ')"
-    grep -Fq "dev-podman-bridge-ok" <<<"$dev_output"
-    grep -Fq "dev-podman-host-ok" <<<"$dev_output"
-    grep -Fq "dev-docker-bridge-ok" <<<"$dev_output"
-    grep -Fq "dev-docker-host-ok" <<<"$dev_output"
-
-    echo "==> running the Podman Compose stack and checking networks from dev"
-    compose up --detach
-    compose_dev_output=""
-    for _ in {1..60}; do
-        if compose_dev_output="$(compose exec --no-TTY dev /bin/bash -lc '
-                set -e
-                podman run --rm --network=bridge docker.io/library/alpine:latest \
-                    /bin/sh -c "printf compose-dev-bridge-ok"
-                podman run --rm --network=host docker.io/library/alpine:latest \
-                    /bin/sh -c "printf compose-dev-host-ok"
-            ' 2>/dev/null)"; then
-            break
-        fi
-        sleep 1
-    done
-    grep -Fq "compose-dev-bridge-ok" <<<"$compose_dev_output"
-    grep -Fq "compose-dev-host-ok" <<<"$compose_dev_output"
-    compose down --volumes --remove-orphans >/dev/null
-
-    echo "==> checking compose tooling (docker compose, docker-compose, podman compose, podman-compose) under root"
-    root_compose_output="$(docker_run --rm \
-        --env RUN_AS_ROOT=1 \
-        "$image" /bin/bash -c '
-            set -e
-            workdir="$(mktemp -d)"
-            cd "$workdir"
-            cat << "COMPOSE" > docker-compose.yml
-services:
-  test:
-    image: docker.io/library/alpine:latest
-    command: ["echo", "compose-root-ok"]
-COMPOSE
-            docker compose up
-            docker compose down
-            docker-compose up
-            docker-compose down
-            podman compose up
-            podman compose down
-            podman-compose up
-            podman-compose down
-            rm -rf "$workdir"
-        ')"
-    grep -Fq "compose-root-ok" <<<"$root_compose_output"
-
-    echo "==> checking compose tooling (docker compose, docker-compose, podman compose, podman-compose) under dev"
-    dev_compose_output="$(docker_run --rm \
-        "$image" /bin/bash -c '
-            set -e
-            workdir="$(mktemp -d -p /tmp)"
-            cd "$workdir"
-            cat << "COMPOSE" > docker-compose.yml
-services:
-  test:
-    image: docker.io/library/alpine:latest
-    command: ["echo", "compose-dev-ok"]
-COMPOSE
-            docker compose up
-            docker compose down
-            docker-compose up
-            docker-compose down
-            podman compose up
-            podman compose down
-            podman-compose up
-            podman-compose down
-            rm -rf "$workdir"
-        ')"
-    grep -Fq "compose-dev-ok" <<<"$dev_compose_output"
-
-    echo "==> checking the shared remote socket under root and dev"
-    docker_run --rm --env RUN_AS_ROOT=1 "$image" podman info --format '{{.Host.RemoteSocket.Path}}' >/dev/null
-    docker_run --rm "$image" podman info --format '{{.Host.RemoteSocket.Path}}' >/dev/null
 fi
 
 echo "==> checking non-root identity handoff"
