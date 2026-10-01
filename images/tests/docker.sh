@@ -64,7 +64,7 @@ docker_run() {
 }
 
 wait_for_backend() {
-    local attempt state
+    local attempt state status
     for attempt in {1..60}; do
         state="$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || true)"
         if [[ "$state" != running ]]; then
@@ -72,12 +72,37 @@ wait_for_backend() {
             docker logs "$container" >&2 || true
             return 1
         fi
-        if docker exec "$container" /usr/bin/dev-env backend status >/dev/null 2>&1; then
-            return 0
+        if status="$(docker exec "$container" /usr/bin/dev-env backend status --json 2>/dev/null)"; then
+            # `backend run` publishes its socket before the initial handoff
+            # has finished. Do not let a transient socket response race the
+            # first real client request on a busy CI runner.
+            if grep -Fq '"state": "ready"' <<<"$status" ||
+                grep -Fq '"state":"ready"' <<<"$status"; then
+                return 0
+            fi
         fi
         sleep 1
     done
     echo "timed out waiting for the dev-env backend in $container" >&2
+    docker logs "$container" >&2 || true
+    return 1
+}
+
+docker_exec_retry() {
+    local attempt output state
+    for attempt in {1..10}; do
+        if output="$(docker exec "$container" "$@" 2>&1)"; then
+            printf '%s\n' "$output"
+            return 0
+        fi
+        state="$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || true)"
+        if [[ "$state" != running ]]; then
+            break
+        fi
+        sleep 1
+    done
+    echo "docker exec failed in $container: $*" >&2
+    printf '%s\n' "${output:-}" >&2
     docker logs "$container" >&2 || true
     return 1
 }
@@ -333,7 +358,7 @@ docker_run --rm --env RUN_AS_ROOT=1 "$image" /bin/sh -c '
 '
 
 echo "==> checking deployment and docker exec"
-docker_run --detach --name "$container" --env RUN_AS_ROOT=1 "$image" /bin/sh -c 'sleep 120' >/dev/null
+docker_run --detach --name "$container" --env RUN_AS_ROOT=1 "$image" /bin/sh -c 'sleep 300' >/dev/null
 for _ in {1..30}; do
     state="$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || true)"
     case "$state" in
@@ -348,8 +373,9 @@ done
 [[ "$(docker inspect --format '{{.State.Running}}' "$container")" == true ]]
 wait_for_backend
 
-docker exec "$container" /usr/bin/dev-env doctor --json | grep -Fq '"ok": true'
-docker exec "$container" /bin/bash -lc 'test -n "$PATH" && test -n "$NIX_PATH"'
-docker exec "$container" /bin/sh -c 'test "$(stat -c %u:%g /root)" = "0:0" && test "$(stat -c %U /root)" = root'
+doctor_output="$(docker_exec_retry /usr/bin/dev-env doctor --json)"
+grep -Fq '"ok": true' <<<"$doctor_output"
+docker_exec_retry /bin/bash -lc 'test -n "$PATH" && test -n "$NIX_PATH"' >/dev/null
+docker_exec_retry /bin/sh -c 'test "$(stat -c %u:%g /root)" = "0:0" && test "$(stat -c %U /root)" = root' >/dev/null
 
 echo "Docker test passed: ${image}"
