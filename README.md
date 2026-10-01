@@ -472,8 +472,14 @@ x-podman-engine: &podman-engine
     - podman-data:/var/lib/containers
     - .:/workspace
   cgroup: private
-  cap_drop: [ALL]
-  cap_add: [NET_ADMIN, SYS_ADMIN, SYS_CHROOT, SETUID, SETGID, SETPCAP, DAC_OVERRIDE, CHOWN, FOWNER, MKNOD]
+  cap_add:
+    - NET_ADMIN
+    - SYS_ADMIN
+    - SYS_CHROOT
+    - SYS_PTRACE
+    - SYS_RESOURCE
+    - DAC_READ_SEARCH
+    - AUDIT_WRITE
   security_opt: ["seccomp:unconfined", "systempaths:unconfined", "label=disable"]
   group_add:
     - "${PODMAN_SOCKET_GID:-1000}"

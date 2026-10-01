@@ -127,7 +127,7 @@ echo "==> checking the resolved environment and bootstrap plan"
 plan="$(docker_run --rm --entrypoint /usr/bin/container-init "$image" plan --json)"
 grep -Fq '"actions"' <<<"$plan"
 grep -Fq '"handoff"' <<<"$plan"
-environment="$(docker_run --rm --entrypoint /usr/bin/dev-env "$image" print --format json)"
+environment="$(docker_run --rm --entrypoint /usr/bin/container-init "$image" run -- /usr/bin/dev-env print --format json)"
 grep -Fq '"PATH"' <<<"$environment"
 grep -Fq '"NIX_PATH"' <<<"$environment"
 
@@ -144,8 +144,8 @@ if [[ "$target" == rust-common ]]; then
     disabled_environment="$(docker_run --rm \
         --env SCCACHE_DISABLE=1 \
         --env ENABLE_SCCACHE=1 \
-        --entrypoint /usr/bin/dev-env \
-        "$image" print --format json)"
+        --entrypoint /usr/bin/container-init \
+        "$image" run -- /usr/bin/dev-env print --format json)"
     if grep -Fq '"RUSTC_WRAPPER"' <<<"$disabled_environment"; then
         echo "RUSTC_WRAPPER must be unset when SCCACHE_DISABLE=1" >&2
         exit 1
@@ -153,8 +153,8 @@ if [[ "$target" == rust-common ]]; then
 
     legacy_disabled_environment="$(docker_run --rm \
         --env ENABLE_SCCACHE=0 \
-        --entrypoint /usr/bin/dev-env \
-        "$image" print --format json)"
+        --entrypoint /usr/bin/container-init \
+        "$image" run -- /usr/bin/dev-env print --format json)"
     if grep -Fq '"RUSTC_WRAPPER"' <<<"$legacy_disabled_environment"; then
         echo "RUSTC_WRAPPER must be unset when ENABLE_SCCACHE=0" >&2
         exit 1
@@ -165,8 +165,8 @@ if [[ "$target" == rust-common ]]; then
         --env CARGO_TARGET_DIR=/tmp/rust-target \
         --env SCCACHE_DIR=/tmp/sccache \
         --env SCCACHE_DISABLE=1 \
-        --entrypoint /usr/bin/dev-env \
-        "$image" print --format json)"
+        --entrypoint /usr/bin/container-init \
+        "$image" run -- /usr/bin/dev-env print --format json)"
     grep -Fq '"CARGO_INCREMENTAL":"1"' <<<"$overridden_environment"
     grep -Fq '"CARGO_TARGET_DIR":"/tmp/rust-target"' <<<"$overridden_environment"
     grep -Fq '"SCCACHE_DIR":"/tmp/sccache"' <<<"$overridden_environment"
