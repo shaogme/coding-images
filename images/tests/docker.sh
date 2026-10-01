@@ -119,21 +119,26 @@ if [[ "$target" == podman ]]; then
     docker volume create "$socket_volume" >/dev/null
     docker volume create "$data_volume" >/dev/null
     docker run --detach --name "$engine_container" \
-        --cap-drop ALL \
+        --cap-add NET_ADMIN \
         --cap-add SYS_ADMIN \
-        --cap-add SETUID \
-        --cap-add SETGID \
-        --cap-add DAC_OVERRIDE \
-        --cgroupns private \
+        --cap-add SYS_CHROOT \
+        --cap-add SYS_PTRACE \
+        --cap-add SYS_RESOURCE \
+        --cap-add DAC_READ_SEARCH \
+        --cap-add AUDIT_WRITE \
+        --cgroupns=private \
         --security-opt seccomp=unconfined \
         --security-opt systempaths=unconfined \
+        --security-opt label=disable \
         --device /dev/fuse \
         --device /dev/net/tun \
         --env PODMAN_SOCKET_GID=1000 \
+        --env PODMAN_SOCKET_MODE=0660 \
         --volume "$socket_volume:/run/podman" \
         --volume "$data_volume:/var/lib/containers" \
         --volume "$repo_root:/workspace" \
-        "$engine_image" >/dev/null
+        "$engine_image" \
+        podman system service --time=0 unix:///run/podman/podman.sock >/dev/null
     for _ in {1..60}; do
         if docker exec "$engine_container" /bin/sh -c 'test -S /run/podman/podman.sock' >/dev/null 2>&1; then
             break
