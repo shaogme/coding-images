@@ -63,7 +63,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- ':(glob)images/**/.config/mise.lock' ':(glob)images/**/.config/.mise/**'
-          git commit -m 'chore(mise): update lockfiles [skip ci]'
+          git commit -m 'chore(mise): update lockfiles'
           branch="mise-lock-update-${GITHUB_RUN_ID}"
           git push --set-upstream origin "HEAD:$branch"
           pr_url="$(gh pr create \
