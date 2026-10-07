@@ -246,20 +246,20 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478120097"
 
 [[tools.rust]]
-version = "nightly-2026-10-07"
-backend = "core:rust"
-specifiers = ["nightly"]
-
-[tools.rust.options]
-components = "miri,rust-src"
-
-[[tools.rust]]
 version = "stable"
 backend = "core:rust"
 specifiers = ["stable"]
 
 [tools.rust.options]
 components = "rust-src"
+
+[[tools.rust]]
+version = "nightly-2026-10-07"
+backend = "core:rust"
+specifiers = ["nightly"]
+
+[tools.rust.options]
+components = "miri,rust-src"
 
 [[tools.sccache]]
 version = "0.18.0"
