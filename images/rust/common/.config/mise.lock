@@ -100,7 +100,7 @@ backend = "cargo:cargo-expand"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-geiger"]]
-version = "0.13.0"
+version = "0.14.0"
 backend = "cargo:cargo-geiger"
 specifiers = ["latest"]
 
