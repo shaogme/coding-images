@@ -33,19 +33,19 @@ url = "https://github.com/anthropics/claude-code/releases/download/v2.1.296/clau
 url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/625598991"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.3.3"
+version = "1.3.4"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:a9d23fe1d7e5c8471881ab37723571a8d3f24e6ecace8fe082f8c0c8d90f41ca"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.3.3/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/626854050"
+checksum = "sha256:56161a1849eff501fead19bc7c477ee80f26776bf470fda01c119cc345a1818c"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.3.4/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/635961761"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:8ee3ca32574c431285efbf4d4732f7f8d53e959370bc4a61646e4fa496f7f2b6"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.3.3/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/626854055"
+checksum = "sha256:db5e81e8dee72d282cb1fb5fcd98dc5a43680730d71e3d637a67c874ec077ad3"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.3.4/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/635961759"
 
 [[tools."aqua:jetify-com/devbox"]]
 version = "0.18.4"
