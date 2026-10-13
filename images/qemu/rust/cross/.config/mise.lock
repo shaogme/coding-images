@@ -100,7 +100,7 @@ backend = "cargo:cargo-expand"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-geiger"]]
-version = "0.13.0"
+version = "0.14.0"
 backend = "cargo:cargo-geiger"
 specifiers = ["latest"]
 
@@ -254,7 +254,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-10-12"
+version = "nightly-2026-10-13"
 backend = "core:rust"
 specifiers = ["nightly"]
 

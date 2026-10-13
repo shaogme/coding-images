@@ -100,7 +100,7 @@ backend = "cargo:cargo-expand"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-geiger"]]
-version = "0.13.0"
+version = "0.14.0"
 backend = "cargo:cargo-geiger"
 specifiers = ["latest"]
 
@@ -251,18 +251,18 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478120097"
 
 [[tools.rust]]
-version = "nightly-2026-10-12"
+version = "stable"
 backend = "core:rust"
-specifiers = ["nightly"]
+specifiers = ["stable"]
 
 [tools.rust.options]
 components = "rust-src"
 targets = "wasm32-unknown-unknown"
 
 [[tools.rust]]
-version = "stable"
+version = "nightly-2026-10-13"
 backend = "core:rust"
-specifiers = ["stable"]
+specifiers = ["nightly"]
 
 [tools.rust.options]
 components = "rust-src"
