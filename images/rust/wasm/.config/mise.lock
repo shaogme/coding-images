@@ -260,7 +260,7 @@ components = "rust-src"
 targets = "wasm32-unknown-unknown"
 
 [[tools.rust]]
-version = "nightly-2026-10-13"
+version = "nightly-2026-10-14"
 backend = "core:rust"
 specifiers = ["nightly"]
 
