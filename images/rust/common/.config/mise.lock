@@ -18,19 +18,19 @@ url = "https://github.com/anomalyco/opencode/releases/download/v1.19.3/opencode-
 url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/647209173"
 
 [[tools."aqua:anthropics/claude-code"]]
-version = "2.1.301"
+version = "2.1.302"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
-checksum = "sha256:a19875467f8125449a39ebe0467e11b04be8a3130e100783043fc281ef6ed4a3"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.301/claude-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/644133010"
+checksum = "sha256:812a10792bf91bccba6de57b86c2ff055264037b99011cfd558db8e6967760c3"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.302/claude-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/647955914"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
-checksum = "sha256:40d2cbbd74a43e9ed683c9f8f93afdadeed09d16d56095fe1e46dedaa1728082"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.301/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/644133245"
+checksum = "sha256:0d865f10fe49f2e731ab9d4f7bdcce082cad4f7bbf71d2cbbf7be47b9d8ae5dc"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.302/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/647956172"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
 version = "1.4.0"
