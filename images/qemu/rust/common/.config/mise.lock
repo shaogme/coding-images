@@ -3,19 +3,19 @@
 lockfile_version = 3
 
 [[tools."aqua:anomalyco/opencode"]]
-version = "1.19.2"
+version = "1.19.3"
 backend = "aqua:anomalyco/opencode"
 specifiers = ["latest"]
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-arm64"]
-checksum = "sha256:3f73a474065b4b7c4a64cef2395a6123ae1039c2e41f0acbe29ae6521b50df66"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.2/opencode-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/645848407"
+checksum = "sha256:7900818a6a98881edbbadab4b7525940eff3b9750040c200481f9f56cacee405"
+url = "https://github.com/anomalyco/opencode/releases/download/v1.19.3/opencode-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/647209228"
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-x64"]
-checksum = "sha256:4eff8d2cf8614ead97eadf1123d46033dc975eadeac3df04644a64bae0f9e819"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.2/opencode-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/645848510"
+checksum = "sha256:13a8fb2978302071b86f9d7e00da9c8895f9cd846978379c3bdc6a5333536c9b"
+url = "https://github.com/anomalyco/opencode/releases/download/v1.19.3/opencode-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/647209173"
 
 [[tools."aqua:anthropics/claude-code"]]
 version = "2.1.301"
@@ -236,20 +236,20 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478120097"
 
 [[tools.rust]]
-version = "nightly-2026-10-16"
-backend = "core:rust"
-specifiers = ["nightly"]
-
-[tools.rust.options]
-components = "miri,rust-src"
-
-[[tools.rust]]
 version = "stable"
 backend = "core:rust"
 specifiers = ["stable"]
 
 [tools.rust.options]
 components = "rust-src"
+
+[[tools.rust]]
+version = "nightly-2026-10-16"
+backend = "core:rust"
+specifiers = ["nightly"]
+
+[tools.rust.options]
+components = "miri,rust-src"
 
 [[tools.sccache]]
 version = "0.18.0"
