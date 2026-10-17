@@ -47,23 +47,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # --------------------------------------------------------------------------
-  # 1. Discover all images and group into staged matrices
-  # --------------------------------------------------------------------------
   discover-images:
     name: Discover Images
     runs-on: ubuntu-latest
     outputs:
-      stage_0: ${{ steps.set-matrix.outputs.stage_0 }}
-      stage_1: ${{ steps.set-matrix.outputs.stage_1 }}
-      stage_2: ${{ steps.set-matrix.outputs.stage_2 }}
-      stage_3: ${{ steps.set-matrix.outputs.stage_3 }}
-      stage_4: ${{ steps.set-matrix.outputs.stage_4 }}
-      has_stage_0: ${{ steps.set-matrix.outputs.has_stage_0 }}
-      has_stage_1: ${{ steps.set-matrix.outputs.has_stage_1 }}
-      has_stage_2: ${{ steps.set-matrix.outputs.has_stage_2 }}
-      has_stage_3: ${{ steps.set-matrix.outputs.has_stage_3 }}
-      has_stage_4: ${{ steps.set-matrix.outputs.has_stage_4 }}
+      image_names: ${{ steps.set-target.outputs.image_names }}
       should_push: ${{ steps.set-params.outputs.should_push }}
       extra_tag: ${{ steps.set-params.outputs.extra_tag }}
       nixos_dockers_version: ${{ steps.set-params.outputs.nixos_dockers_version }}
@@ -73,155 +61,304 @@ jobs:
 
       - name: Determine parameters
         id: set-params
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PUSH: ${{ inputs.push }}
+          INPUT_EXTRA_TAG: ${{ inputs.extra_tag }}
+          INPUT_NIXOS_DOCKERS_VERSION: ${{ inputs.nixos_dockers_version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "should_push=${{ inputs.push }}" >> $GITHUB_OUTPUT
-            echo "extra_tag=${{ inputs.extra_tag }}" >> $GITHUB_OUTPUT
-            echo "nixos_dockers_version=${{ inputs.nixos_dockers_version }}" >> $GITHUB_OUTPUT
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            printf 'should_push=%s\n' "$INPUT_PUSH" >> "$GITHUB_OUTPUT"
+            printf 'extra_tag=%s\n' "$INPUT_EXTRA_TAG" >> "$GITHUB_OUTPUT"
+            printf 'nixos_dockers_version=%s\n' "$INPUT_NIXOS_DOCKERS_VERSION" >> "$GITHUB_OUTPUT"
           else
-            echo "should_push=true" >> $GITHUB_OUTPUT
-            echo "extra_tag=" >> $GITHUB_OUTPUT
-            echo "nixos_dockers_version=latest" >> $GITHUB_OUTPUT
+            printf 'should_push=true\nextra_tag=\nnixos_dockers_version=latest\n' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Scan images directory and group stages
-        id: set-matrix
+      - name: Discover target dependency closure
+        id: set-target
         env:
           TARGET_IMAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.target_image || 'all' }}
-        run: |
-          python3 scripts/discover_images.py --target "${TARGET_IMAGE}" --github-output "${GITHUB_OUTPUT}"
+        run: python3 scripts/discover_images.py --target "$TARGET_IMAGE" --github-output "$GITHUB_OUTPUT"
 
-  # --------------------------------------------------------------------------
-  # 2. Stage 0: Build architecture archives, then merge and publish the base image
-  # --------------------------------------------------------------------------
-  build-stage-0:
-    name: Stage 0 - Build & Publish
+  # Each build waits only for the images that provide its runtime parent or
+  # builder archive. Publishing is a separate job and never blocks descendants.
+  build-common:
+    name: Build common
     needs: discover-images
-    if: needs.discover-images.outputs.has_stage_0 == 'true'
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.discover-images.outputs.stage_0) }}
+    if: ${{ needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'common') }}
     uses: ./.github/workflows/build-single-image.yml
     with:
-      image_name: ${{ matrix.image_name }}
-      context: ${{ matrix.context }}
-      dockerfile: ${{ matrix.dockerfile }}
-      runtime_parent: ${{ matrix.runtime_parent }}
-      builder_parent: ${{ matrix.builder_parent }}
-      builder_parent_tag: ${{ matrix.builder_parent_tag }}
-      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
-      builder_mode: ${{ matrix.builder_mode }}
-      build_closure: ${{ matrix.build_closure }}
-      ancestors: ${{ matrix.ancestors }}
+      image_name: common
+      context: images/common
+      dockerfile: images/common/docker/Dockerfile
+      runtime_parent: mise
+      builder_parent_tag: mise-builder
+      builder_artifact_parent: mise-builder
+      builder_mode: mise
+      ancestors: '["global"]'
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
-      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
       nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
-  # --------------------------------------------------------------------------
-  # 3. Stage 1: Build, archive, merge, and publish images based on common
-  # --------------------------------------------------------------------------
-  build-stage-1:
-    name: Stage 1 - Build & Publish
-    needs: [discover-images, build-stage-0]
-    if: always() && needs.discover-images.outputs.has_stage_1 == 'true' && (needs.build-stage-0.result == 'success' || needs.discover-images.outputs.has_stage_0 != 'true')
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.discover-images.outputs.stage_1) }}
+  publish-common:
+    name: Publish common
+    needs: [discover-images, build-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-common.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: common
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-podman:
+    name: Build podman
+    needs: [discover-images, build-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'podman') && needs.build-common.result == 'success' }}
     uses: ./.github/workflows/build-single-image.yml
     with:
-      image_name: ${{ matrix.image_name }}
-      context: ${{ matrix.context }}
-      dockerfile: ${{ matrix.dockerfile }}
-      runtime_parent: ${{ matrix.runtime_parent }}
-      builder_parent: ${{ matrix.builder_parent }}
-      builder_parent_tag: ${{ matrix.builder_parent_tag }}
-      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
-      builder_mode: ${{ matrix.builder_mode }}
-      build_closure: ${{ matrix.build_closure }}
-      ancestors: ${{ matrix.ancestors }}
+      image_name: podman
+      context: images/podman
+      dockerfile: images/podman/docker/Dockerfile
+      runtime_parent: common
+      builder_parent_tag: common-builder
+      builder_artifact_parent: common
+      builder_mode: passthrough
+      ancestors: '["common","global"]'
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
-      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
       nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
-  # --------------------------------------------------------------------------
-  # 4. Stage 2: Build, archive, merge, and publish images based on stage 1
-  # --------------------------------------------------------------------------
-  build-stage-2:
-    name: Stage 2 - Build & Publish
-    needs: [discover-images, build-stage-1]
-    if: always() && needs.discover-images.outputs.has_stage_2 == 'true' && (needs.build-stage-1.result == 'success' || needs.discover-images.outputs.has_stage_1 != 'true')
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.discover-images.outputs.stage_2) }}
+  publish-podman:
+    name: Publish podman
+    needs: [discover-images, build-podman]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-podman.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: podman
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-npins-common:
+    name: Build npins-common
+    needs: [discover-images, build-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'npins-common') && needs.build-common.result == 'success' }}
     uses: ./.github/workflows/build-single-image.yml
     with:
-      image_name: ${{ matrix.image_name }}
-      context: ${{ matrix.context }}
-      dockerfile: ${{ matrix.dockerfile }}
-      runtime_parent: ${{ matrix.runtime_parent }}
-      builder_parent: ${{ matrix.builder_parent }}
-      builder_parent_tag: ${{ matrix.builder_parent_tag }}
-      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
-      builder_mode: ${{ matrix.builder_mode }}
-      build_closure: ${{ matrix.build_closure }}
-      ancestors: ${{ matrix.ancestors }}
+      image_name: npins-common
+      context: images/npins/common
+      dockerfile: images/npins/common/docker/Dockerfile
+      runtime_parent: common
+      builder_parent_tag: common-builder
+      builder_artifact_parent: common
+      builder_mode: passthrough
+      ancestors: '["common","global"]'
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
-      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
       nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
-  # --------------------------------------------------------------------------
-  # 5. Stage 3: Build, archive, merge, and publish images based on stage 2
-  # --------------------------------------------------------------------------
-  build-stage-3:
-    name: Stage 3 - Build & Publish
-    needs: [discover-images, build-stage-2]
-    if: always() && needs.discover-images.outputs.has_stage_3 == 'true' && (needs.build-stage-2.result == 'success' || needs.discover-images.outputs.has_stage_2 != 'true')
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.discover-images.outputs.stage_3) }}
+  publish-npins-common:
+    name: Publish npins-common
+    needs: [discover-images, build-npins-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-npins-common.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: npins-common
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-rust-common:
+    name: Build rust-common
+    needs: [discover-images, build-podman, build-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'rust-common') && needs.build-podman.result == 'success' && needs.build-common.result == 'success' }}
     uses: ./.github/workflows/build-single-image.yml
     with:
-      image_name: ${{ matrix.image_name }}
-      context: ${{ matrix.context }}
-      dockerfile: ${{ matrix.dockerfile }}
-      runtime_parent: ${{ matrix.runtime_parent }}
-      builder_parent: ${{ matrix.builder_parent }}
-      builder_parent_tag: ${{ matrix.builder_parent_tag }}
-      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
-      builder_mode: ${{ matrix.builder_mode }}
-      build_closure: ${{ matrix.build_closure }}
-      ancestors: ${{ matrix.ancestors }}
+      image_name: rust-common
+      context: images/rust/common
+      dockerfile: images/rust/common/docker/Dockerfile
+      runtime_parent: podman
+      builder_parent_tag: common-builder
+      builder_artifact_parent: common
+      builder_mode: mise
+      ancestors: '["podman","common","global"]'
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
-      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
       nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
     secrets: inherit
 
-  # --------------------------------------------------------------------------
-  # 6. Stage 4: Build, archive, merge, and publish images based on stage 3
-  # --------------------------------------------------------------------------
-  build-stage-4:
-    name: Stage 4 - Build & Publish
-    needs: [discover-images, build-stage-3]
-    if: always() && needs.discover-images.outputs.has_stage_4 == 'true' && (needs.build-stage-3.result == 'success' || needs.discover-images.outputs.has_stage_3 != 'true')
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.discover-images.outputs.stage_4) }}
+  publish-rust-common:
+    name: Publish rust-common
+    needs: [discover-images, build-rust-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-rust-common.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: rust-common
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-qemu-common:
+    name: Build qemu-common
+    needs: [discover-images, build-podman, build-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'qemu-common') && needs.build-podman.result == 'success' && needs.build-common.result == 'success' }}
     uses: ./.github/workflows/build-single-image.yml
     with:
-      image_name: ${{ matrix.image_name }}
-      context: ${{ matrix.context }}
-      dockerfile: ${{ matrix.dockerfile }}
-      runtime_parent: ${{ matrix.runtime_parent }}
-      builder_parent: ${{ matrix.builder_parent }}
-      builder_parent_tag: ${{ matrix.builder_parent_tag }}
-      builder_artifact_parent: ${{ matrix.builder_artifact_parent }}
-      builder_mode: ${{ matrix.builder_mode }}
-      build_closure: ${{ matrix.build_closure }}
-      ancestors: ${{ matrix.ancestors }}
+      image_name: qemu-common
+      context: images/qemu/common
+      dockerfile: images/qemu/common/docker/Dockerfile
+      runtime_parent: podman
+      builder_parent_tag: common-builder
+      builder_artifact_parent: common
+      builder_mode: passthrough
+      ancestors: '["podman","common","global"]'
       push: ${{ needs.discover-images.outputs.should_push == 'true' }}
-      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
       nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
+    secrets: inherit
+
+  publish-qemu-common:
+    name: Publish qemu-common
+    needs: [discover-images, build-qemu-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-qemu-common.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: qemu-common
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-npins-rust:
+    name: Build npins-rust
+    needs: [discover-images, build-rust-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'npins-rust') && needs.build-rust-common.result == 'success' }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: npins-rust
+      context: images/npins/rust
+      dockerfile: images/npins/rust/docker/Dockerfile
+      runtime_parent: rust-common
+      builder_parent_tag: rust-common-builder
+      builder_artifact_parent: rust-common
+      builder_mode: passthrough
+      ancestors: '["rust-common","podman","common","global"]'
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
+    secrets: inherit
+
+  publish-npins-rust:
+    name: Publish npins-rust
+    needs: [discover-images, build-npins-rust]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-npins-rust.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: npins-rust
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-rust-wasm:
+    name: Build rust-wasm
+    needs: [discover-images, build-rust-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'rust-wasm') && needs.build-rust-common.result == 'success' }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: rust-wasm
+      context: images/rust/wasm
+      dockerfile: images/rust/wasm/docker/Dockerfile
+      runtime_parent: rust-common
+      builder_parent_tag: rust-common-builder
+      builder_artifact_parent: rust-common
+      builder_mode: mise
+      ancestors: '["rust-common","podman","common","global"]'
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
+    secrets: inherit
+
+  publish-rust-wasm:
+    name: Publish rust-wasm
+    needs: [discover-images, build-rust-wasm]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-rust-wasm.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: rust-wasm
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-rust-cross:
+    name: Build rust-cross
+    needs: [discover-images, build-rust-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'rust-cross') && needs.build-rust-common.result == 'success' }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: rust-cross
+      context: images/rust/cross
+      dockerfile: images/rust/cross/docker/Dockerfile
+      runtime_parent: rust-common
+      builder_parent_tag: rust-common-builder
+      builder_artifact_parent: rust-common
+      builder_mode: mise
+      ancestors: '["rust-common","podman","common","global"]'
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
+    secrets: inherit
+
+  publish-rust-cross:
+    name: Publish rust-cross
+    needs: [discover-images, build-rust-cross]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-rust-cross.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: rust-cross
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-qemu-rust-common:
+    name: Build qemu-rust-common
+    needs: [discover-images, build-qemu-common, build-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'qemu-rust-common') && needs.build-qemu-common.result == 'success' && needs.build-common.result == 'success' }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: qemu-rust-common
+      context: images/qemu/rust/common
+      dockerfile: images/qemu/rust/common/docker/Dockerfile
+      runtime_parent: qemu-common
+      builder_parent_tag: qemu-common-builder
+      builder_artifact_parent: common
+      builder_mode: mise
+      ancestors: '["qemu-common","podman","common","global"]'
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
+    secrets: inherit
+
+  publish-qemu-rust-common:
+    name: Publish qemu-rust-common
+    needs: [discover-images, build-qemu-rust-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-qemu-rust-common.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: qemu-rust-common
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
+    secrets: inherit
+
+  build-qemu-rust-cross:
+    name: Build qemu-rust-cross
+    needs: [discover-images, build-qemu-rust-common]
+    if: ${{ always() && needs.discover-images.result == 'success' && contains(fromJSON(needs.discover-images.outputs.image_names), 'qemu-rust-cross') && needs.build-qemu-rust-common.result == 'success' }}
+    uses: ./.github/workflows/build-single-image.yml
+    with:
+      image_name: qemu-rust-cross
+      context: images/qemu/rust/cross
+      dockerfile: images/qemu/rust/cross/docker/Dockerfile
+      runtime_parent: qemu-rust-common
+      builder_parent_tag: qemu-rust-common-builder
+      builder_artifact_parent: qemu-rust-common
+      builder_mode: mise
+      ancestors: '["qemu-rust-common","qemu-common","podman","common","global"]'
+      push: ${{ needs.discover-images.outputs.should_push == 'true' }}
+      nixos_dockers_version: ${{ needs.discover-images.outputs.nixos_dockers_version }}
+    secrets: inherit
+
+  publish-qemu-rust-cross:
+    name: Publish qemu-rust-cross
+    needs: [discover-images, build-qemu-rust-cross]
+    if: ${{ always() && needs.discover-images.result == 'success' && needs.discover-images.outputs.should_push == 'true' && needs.build-qemu-rust-cross.result == 'success' }}
+    uses: ./.github/workflows/publish-single-image.yml
+    with:
+      image_name: qemu-rust-cross
+      extra_tag: ${{ needs.discover-images.outputs.extra_tag }}
     secrets: inherit

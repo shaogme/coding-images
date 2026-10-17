@@ -10,7 +10,7 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Keep all generated state in directories explicitly synchronized into runtime.
+# Keep installed tool state in directories explicitly synchronized into runtime.
 ENV MISE_DATA_DIR=/usr/local/share/mise \
     MISE_CONFIG_DIR=/etc/mise \
     MISE_YES=1 \
@@ -50,8 +50,7 @@ RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
     set -eu; \
     for path in \
         /etc/mise \
-        /usr/local/share/mise \
-        /data/cache/mise; do \
+        /usr/local/share/mise; do \
         mkdir -p "$path"; \
         rsync -aH --checksum --omit-dir-times \
             "/mnt/mise-builder$path/" "$path/"; \

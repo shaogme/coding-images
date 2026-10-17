@@ -10,8 +10,8 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Keep mise and Rust state in paths copied into the runtime image. The
-# builder's default /root state must never be part of the runtime sync.
+# Keep installed Mise and Rust tool state in explicit paths. The builder's
+# default /root state and downloaded archives are not part of the runtime sync.
 ENV MISE_DATA_DIR=/usr/local/share/mise \
     MISE_CONFIG_DIR=/etc/mise \
     MISE_CACHE_DIR=/data/cache/mise \
@@ -75,7 +75,6 @@ RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
     for path in \
         /etc/mise \
         /usr/local/share/mise \
-        /data/cache/mise \
         /usr/local/share/rustup \
         /usr/local/share/cargo \
         /usr/local/share/pnpm; do \

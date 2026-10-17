@@ -41,7 +41,6 @@ RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
     for path in \
         /etc/mise \
         /usr/local/share/mise \
-        /data/cache/mise \
         /usr/local/share/rustup \
         /usr/local/share/cargo \
         /usr/local/share/pnpm; do \

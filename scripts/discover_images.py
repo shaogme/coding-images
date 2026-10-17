@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Discover image topology and emit the staged build matrices used by CI."""
+"""Discover image topology and emit dependency-closure metadata for CI."""
 
 import argparse
 import json
@@ -183,7 +183,7 @@ def get_staged_matrices(images: list[dict], is_single_target: bool = False) -> d
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Discover Docker images and emit dependency-aware CI matrices.")
+    parser = argparse.ArgumentParser(description="Discover Docker images and emit dependency-aware CI metadata.")
     parser.add_argument("-d", "--images-dir", default=os.environ.get("IMAGES_DIR", "images"))
     parser.add_argument("-t", "--target", default=os.environ.get("TARGET_IMAGE", "all"))
     parser.add_argument("-f", "--format", choices=["matrix", "json", "names", "stages"], default="matrix")
@@ -204,6 +204,7 @@ def main() -> None:
     if args.github_output:
         with open(args.github_output, "a", encoding="utf-8") as output:
             output.write(f"matrix={matrix_json}\n")
+            output.write(f"image_names={json.dumps([image['image_name'] for image in images], separators=(',', ':'))}\n")
             output.write(f"count={len(images)}\n")
             for stage in range(5):
                 stage_json = json.dumps({"include": staged.get(stage, [])}, separators=(",", ":"))

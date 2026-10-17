@@ -32,7 +32,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
   - [镜像自动发现脚本](#镜像自动发现脚本)
   - [本地一键拓扑构建](#本地一键拓扑构建)
 - [CI/CD 自动化构建与发布](#cicd-自动化构建与发布)
-  - [分阶段 (Staged Matrix) 原生构建流水线](#分阶段-staged-matrix-原生构建流水线)
+  - [按镜像依赖图调度的构建流水线](#按镜像依赖图调度的构建流水线)
   - [镜像标签管理策略](#镜像标签管理策略)
 - [项目目录结构](#项目目录结构)
 
@@ -42,7 +42,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 
 - **树状分层继承架构**：镜像之间通过 `FROM` 构建继承链（`common` 作为基底，`rust-common` 继承 `common`，`rust-wasm` 继承 `rust-common`），杜绝重复下载与编译，层级复用率极高。
 - **多架构原生构建**：通过 GitHub Actions 分别在 x86_64（`ubuntu-latest`）和 ARM64（`ubuntu-24.04-arm`）运行器上原生编译打包，避免 QEMU 模拟器的性能开销，生成统一的 Multi-Arch 镜像清单。
-- **可复用的 BuildKit 缓存**：构建 job 启用 Docker containerd image store，在保留本地父级 archive 加载能力的同时使用独立的 builder/runtime GHA 与 registry cache scope。
+- **可复用的 BuildKit 缓存**：构建 job 启用 Docker containerd image store，并使用独立的 builder/runtime GHA 与 registry cache scope。
 - **声明式与模块化环境管理**：底层借助 NixOS 基础镜像提供干净可靠的系统级依赖，用户空间通过 `mise` 的系统与全局模块化配置（`/etc/mise/conf.d/`）按层级独立注入 Node.js、Python、Rust、WebAssembly 及各类 CLI 工具。
 - **自适应 UID/GID 权限映射**：底层完全承接 NixOS 的自适应 UID/GID 权限映射机制（支持 `HOST_UID:HOST_GID` 环境变量或启动时自动探测挂载的 `/workspace` 工作区属主），使用 `su-exec` 切换至匹配的本地普通用户（默认 `dev`），彻底解决宿主机代码与容器构建产物的权限冲突问题。
 - **全自动 Devbox 深度集成**：内置 `devbox` 及其 shell 集成，配合预置系统级配置、统一数据持久化（`/data/devbox`）与自适应权限映射，容器启动或切换目录时自动探测、初始化（支持 `DEVBOX_AUTO_INIT`）与加载 `devbox.json` 环境，开箱即用。
@@ -50,7 +50,7 @@ Coding Images 是一个面向现代化云原生与本地开发的容器镜像仓
 - **标准化 Dev Containers 规范支持**：全量在各层级镜像中预置标准化 `.devcontainer/devcontainer.json` 配置，将安全能力（`cap_add`、`seccomp`）、环境变量及持久化挂载声明为通用工业标准，开箱即用无缝支持 VS Code、Cursor、Zed 等现代容器化 IDE。
 - **统一运行时入口**：所有镜像使用 `/usr/bin/container-init run --`，以声明式 Bootstrap DSL 处理身份、目录和设备，再由 `/usr/bin/dev-env` 物化 mise、Devbox、sccache 与 shell 环境，子镜像无需维护入口脚本。
 - **独立的 Mise 构建阶段**：需要预装工具的镜像同时生成 `mise-builder` 与 `runtime` target。builder 沿 builder lineage 继承，runtime 沿 runtime lineage 继承；builder 只在同一 workflow 的短期 artifact 中传递，不发布到 GHCR。
-- **明确的构建产物边界**：只复制 `/etc/mise`、`/usr/local/share/mise`、`/data/cache/mise` 以及 Rust 工具链的显式目录，不复制 builder 的 root 配置、临时文件或构建凭据。
+- **明确的构建产物边界**：只复制 `/etc/mise`、`/usr/local/share/mise` 以及 Rust 工具链的显式目录，不复制 Mise 下载缓存、builder 的 root 配置、临时文件或构建凭据。
 
 ---
 
@@ -662,14 +662,14 @@ FROM runtime-base AS runtime
 RUN nix profile add nixpkgs#rsync
 RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
     set -eu; \
-    for path in /etc/mise /usr/local/share/mise /data/cache/mise; do \
+    for path in /etc/mise /usr/local/share/mise; do \
         mkdir -p "$path"; \
         rsync -aH --checksum --omit-dir-times \
             "/mnt/mise-builder$path/" "$path/"; \
     done
 ```
 
-不要在 runtime stage 中执行 Mise 安装，也不要同步 builder 的 `/root`、`/tmp`、
+不要在 runtime stage 中执行 Mise 安装，也不要同步 builder 的 `/data/cache/mise`、`/root`、`/tmp`、
 `/run/secrets` 或完整 `/usr/local`。builder archive 只在当前 workflow 的 job 之间
 传递，最终用户只接触 runtime 镜像；`latest` 不是 builder 标签。
 
@@ -709,28 +709,31 @@ NIXOS_DOCKERS_VERSION=2026.8.24 ./scripts/build_local.sh common
 
 ## CI/CD 自动化构建与发布
 
-### 分阶段 (Staged Matrix) 原生构建流水线
+### 按镜像依赖图调度的构建流水线
 
 ```mermaid
 flowchart TD
-    Trigger(["触发构建: push / schedule / workflow_dispatch"]) --> Discover["阶段一: discover-images<br/>计算 5 级 Stage 构建矩阵"]
-
-    Discover --> Stage0["阶段二: Stage 0 (Base)<br/>构建 common 多架构镜像并发布"]
-    Stage0 --> Stage1["阶段三: Stage 1 (Layer 1)<br/>并行构建 podman 与 npins-common 并发布"]
-    Stage1 --> Stage2["阶段四: Stage 2 (Layer 2)<br/>并行构建基于 podman 的 rust-common 与 qemu-common 并发布"]
-    Stage2 --> Stage3["阶段五: Stage 3 (Layer 3)<br/>并行构建 rust-wasm、rust-cross、npins-rust 与 qemu-rust-common 并发布"]
-    Stage3 --> Stage4["阶段六: Stage 4 (Layer 4)<br/>构建基于 qemu-rust-common 的 qemu-rust-cross 并发布"]
+    Trigger(["触发构建: push / schedule / workflow_dispatch"]) --> Discover["discover-images<br/>计算目标镜像的依赖闭包"]
+    Discover --> Common["Build common (amd64 + arm64)"]
+    Common --> Podman["Build podman"]
+    Common --> NpinsCommon["Build npins-common"]
+    Podman --> RustCommon["Build rust-common"]
+    Common --> RustCommon
+    Podman --> QemuCommon["Build qemu-common"]
+    Common --> QemuCommon
+    RustCommon --> NpinsRust["Build npins-rust"]
+    RustCommon --> RustWasm["Build rust-wasm"]
+    RustCommon --> RustCross["Build rust-cross"]
+    QemuCommon --> QemuRustCommon["Build qemu-rust-common"]
+    Common --> QemuRustCommon
+    QemuRustCommon --> QemuRustCross["Build qemu-rust-cross"]
 ```
 
-1. **Stage 0 (Base)**：构建 `common`，在 x86_64 和 ARM64 上原生构建；其 builder parent 使用同版本的上游 `nixos-dockers/mise-builder`。
-2. **Stage 1 (Layer 1)**：并行构建基于 `common` 的 `podman` 与 `npins-common`。
-3. **Stage 2 (Layer 2)**：并行构建基于 `podman` 的 `rust-common` 与 `qemu-common`。
-4. **Stage 3 (Layer 3)**：并行构建基于 `rust-common` 的 `rust-wasm`、`rust-cross`、`npins-rust` 与基于 `qemu-common` 的 `qemu-rust-common`。
-5. **Stage 4 (Layer 4)**：构建基于 `qemu-rust-common` 的 `qemu-rust-cross`。
-
-每个架构 job 都上传 `runtime-<image>-<arch>.tar.gz` 及校验文件；有 Mise 增量的镜像
-另外上传同名 builder archive。`push=false` 只关闭 runtime GHCR 发布，不能跳过内部
-artifact。merge job 只加载和推送 runtime archive，不创建 builder 标签或 manifest。
+每个镜像都有独立的 manifest 发布 job。两个架构构建完成后，子镜像即可开始，父镜像的
+manifest、`latest`、日期和 SHA 标签并行发布。`push=true` 时，架构镜像直接推送到带 workflow run ID 和
+attempt 的 GHCR 临时标签，子镜像按该标签拉取父镜像，不再传输 runtime tar。Mise builder
+archive 仍通过短期 artifact 供子镜像使用。`push=false` 时继续上传并加载 runtime archive，
+因此可以在不发布到 GHCR 的情况下构建整个目标依赖闭包。
 
 ### 镜像标签管理策略
 

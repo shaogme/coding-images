@@ -11,7 +11,7 @@ ARG TARGETARCH
 WORKDIR /workspace
 
 # The qemu builder is an alias of the common builder artifact. Keep all
-# generated state in paths explicitly synchronized into the qemu runtime.
+# installed state in paths explicitly synchronized into the qemu runtime.
 ENV MISE_DATA_DIR=/usr/local/share/mise \
     MISE_CONFIG_DIR=/etc/mise \
     MISE_CACHE_DIR=/data/cache/mise \
@@ -64,7 +64,6 @@ RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
     for path in \
         /etc/mise \
         /usr/local/share/mise \
-        /data/cache/mise \
         /usr/local/share/rustup \
         /usr/local/share/cargo \
         /usr/local/share/pnpm; do \

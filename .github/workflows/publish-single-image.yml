@@ -1,0 +1,63 @@
+name: Publish Single Image Manifest
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: Image name
+        required: true
+        type: string
+      extra_tag:
+        description: Optional extra runtime tag
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  publish:
+    name: Publish (${{ inputs.image_name }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch runtime manifest
+        env:
+          REPOSITORY: ${{ github.repository }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+          EXTRA_TAG: ${{ inputs.extra_tag }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -Eeuo pipefail
+          REPO_LOWER=$(echo "$REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          IMAGE_BASE="ghcr.io/${REPO_LOWER}/${IMAGE_NAME}"
+          TEMP_BASE="ci-${RUN_ID}-${RUN_ATTEMPT}"
+          DATE_TAG=$(date +'%Y%m%d')
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          TAG_ARGS=(-t "${IMAGE_BASE}:latest" -t "${IMAGE_BASE}:${DATE_TAG}" -t "${IMAGE_BASE}:sha-${SHA_SHORT}")
+          if [ -n "$EXTRA_TAG" ]; then TAG_ARGS+=(-t "${IMAGE_BASE}:${EXTRA_TAG}"); fi
+          docker buildx imagetools create "${TAG_ARGS[@]}" \
+            "${IMAGE_BASE}:${TEMP_BASE}-amd64" \
+            "${IMAGE_BASE}:${TEMP_BASE}-arm64"
+
+      - name: Inspect multi-arch runtime manifest
+        env:
+          REPOSITORY: ${{ github.repository }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+        run: |
+          REPO_LOWER=$(echo "$REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          docker buildx imagetools inspect "ghcr.io/${REPO_LOWER}/${IMAGE_NAME}:latest"
