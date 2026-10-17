@@ -23,6 +23,10 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
     PNPM_HOME=/usr/local/share/pnpm \
     PATH=/usr/local/share/cargo/bin:/usr/local/share/pnpm/bin:/usr/local/share/pnpm:$PATH
 
+ENV PKG_CONFIG_PATH=/nix/var/nix/profiles/default/lib/pkgconfig
+
+RUN nix profile add nixpkgs#openssl.dev
+
 RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise /data/cache/mise \
     /usr/local/share/rustup /usr/local/share/cargo /usr/local/share/pnpm
 
