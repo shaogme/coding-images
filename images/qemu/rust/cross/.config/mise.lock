@@ -18,19 +18,19 @@ url = "https://github.com/anomalyco/opencode/releases/download/v1.19.3/opencode-
 url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/647209173"
 
 [[tools."aqua:anthropics/claude-code"]]
-version = "2.1.302"
+version = "2.1.303"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
-checksum = "sha256:812a10792bf91bccba6de57b86c2ff055264037b99011cfd558db8e6967760c3"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.302/claude-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/647955914"
+checksum = "sha256:0c219f6d5fadf1ce5771f7976fe18d6a57a9b8267def5198b58d3e121eeb98c1"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.303/claude-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/654495513"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
-checksum = "sha256:0d865f10fe49f2e731ab9d4f7bdcce082cad4f7bbf71d2cbbf7be47b9d8ae5dc"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.302/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/647956172"
+checksum = "sha256:9ef730488e8b75d47f23c156282a73c89db3342aaf756ed7ec0b78a88fb31f3e"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.303/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/654495696"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
 version = "1.4.2"
@@ -246,20 +246,20 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478120097"
 
 [[tools.rust]]
-version = "nightly-2026-10-18"
-backend = "core:rust"
-specifiers = ["nightly"]
-
-[tools.rust.options]
-components = "miri,rust-src"
-
-[[tools.rust]]
 version = "stable"
 backend = "core:rust"
 specifiers = ["stable"]
 
 [tools.rust.options]
 components = "rust-src"
+
+[[tools.rust]]
+version = "nightly-2026-10-18"
+backend = "core:rust"
+specifiers = ["nightly"]
+
+[tools.rust.options]
+components = "miri,rust-src"
 
 [[tools.sccache]]
 version = "0.18.0"
