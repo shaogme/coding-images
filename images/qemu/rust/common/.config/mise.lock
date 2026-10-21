@@ -18,34 +18,34 @@ url = "https://github.com/anomalyco/opencode/releases/download/v1.19.3/opencode-
 url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/647209173"
 
 [[tools."aqua:anthropics/claude-code"]]
-version = "2.1.303"
+version = "2.1.306"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
-checksum = "sha256:0c219f6d5fadf1ce5771f7976fe18d6a57a9b8267def5198b58d3e121eeb98c1"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.303/claude-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/654495513"
+checksum = "sha256:871fd7f46210c13a95a38506e03ac90abfc5125fc25a1d4f840fbab551b5cd2e"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.306/claude-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/661106612"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
-checksum = "sha256:9ef730488e8b75d47f23c156282a73c89db3342aaf756ed7ec0b78a88fb31f3e"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.303/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/654495696"
+checksum = "sha256:9dc640d16d8228eff9620bde9e0f70d38385a2124f4e7d0a959d0337f0e4b14a"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.306/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/661106756"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.4.2"
+version = "1.4.4"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:08dd4a2ca52d531fef1dfae4ec2fbafcd56342bfa694c8193a60da2b26fb1898"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.2/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/652019035"
+checksum = "sha256:57a96abbc94745a5faf4f24e878766a1882b9aa4c4b83ba567717d8206745f5a"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.4/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/661602303"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:6395837ac0e193dd3fe50f1228e1c4aea345ca99636d54404ab7e74397d4091c"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.2/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/652019030"
+checksum = "sha256:9ae4f7f0667a2868e15bb9ad93819ff7527c7187f12d12e3b5191137c726287b"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.4/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/661602299"
 
 [[tools."aqua:jetify-com/devbox"]]
 version = "0.18.4"
@@ -90,7 +90,7 @@ backend = "cargo:cargo-bloat"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-edit"]]
-version = "0.13.13"
+version = "0.13.14"
 backend = "cargo:cargo-edit"
 specifiers = ["latest"]
 
@@ -105,12 +105,12 @@ backend = "cargo:cargo-geiger"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-nextest"]]
-version = "0.9.148"
+version = "0.9.149"
 backend = "cargo:cargo-nextest"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-show-asm"]]
-version = "0.2.63"
+version = "0.2.64"
 backend = "cargo:cargo-show-asm"
 specifiers = ["latest"]
 
@@ -130,20 +130,20 @@ backend = "cargo:samply"
 specifiers = ["latest"]
 
 [[tools.gh]]
-version = "2.102.0"
+version = "2.103.0"
 backend = "aqua:cli/cli"
 specifiers = ["latest"]
 
 [tools.gh."platforms.linux-arm64"]
-checksum = "sha256:7862c86c72f43df3a2d93ddde6f473285b4e2af61b494849846827e513ef6484"
-url = "https://github.com/cli/cli/releases/download/v2.102.0/gh_2.102.0_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/cli/cli/releases/assets/599854680"
+checksum = "sha256:7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e"
+url = "https://github.com/cli/cli/releases/download/v2.103.0/gh_2.103.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/662956401"
 provenance = "github-attestations"
 
 [tools.gh."platforms.linux-x64"]
-checksum = "sha256:bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386"
-url = "https://github.com/cli/cli/releases/download/v2.102.0/gh_2.102.0_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/cli/cli/releases/assets/599854672"
+checksum = "sha256:fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786"
+url = "https://github.com/cli/cli/releases/download/v2.103.0/gh_2.103.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/662956379"
 provenance = "github-attestations"
 
 [[tools.jq]]
@@ -164,17 +164,17 @@ url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012752"
 provenance = "github-attestations"
 
 [[tools.node]]
-version = "26.12.0"
+version = "26.12.1"
 backend = "core:node"
 specifiers = ["latest"]
 
 [tools.node."platforms.linux-arm64"]
-checksum = "sha256:ec53c915c3fdd8786c5685abd25ae3fe9fba0692307f9811d7caaadea1bcaf03"
-url = "https://nodejs.org/dist/v26.12.0/node-v26.12.0-linux-arm64.tar.gz"
+checksum = "sha256:a6c01af459dd8972ab3fb08ee5da81244d26ba8c4944a62d5bbba8c597ae154f"
+url = "https://nodejs.org/dist/v26.12.1/node-v26.12.1-linux-arm64.tar.gz"
 
 [tools.node."platforms.linux-x64"]
-checksum = "sha256:d9f88af72ad34f7ddf8e67289829f1698f54b6254f7d4f54b7453117ff1a3d2c"
-url = "https://nodejs.org/dist/v26.12.0/node-v26.12.0-linux-x64.tar.gz"
+checksum = "sha256:0fd1eb7770598f52a21995edf6ed35fc690400fa437c2386af329519e9143132"
+url = "https://nodejs.org/dist/v26.12.1/node-v26.12.1-linux-x64.tar.gz"
 
 [[tools."npm:@openai/codex"]]
 version = "0.163.0"
@@ -206,19 +206,9 @@ url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/643957410"
 provenance = "github-attestations"
 
 [[tools.python]]
-version = "3.15.0"
+version = "3.15.1"
 backend = "core:python"
 specifiers = ["latest"]
-
-[tools.python."platforms.linux-arm64"]
-checksum = "sha256:064778ca701efc4c8366d0b235a2a0f5dbe14d921aeb2ef4f5c7b93e5a75cbd0"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.15.0+20261013-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
-provenance = "github-attestations"
-
-[tools.python."platforms.linux-x64"]
-checksum = "sha256:69740dcd9b3480b3d53760f2d3b75582adb14fa54434628dea32480ddede542a"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.15.0+20261013-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
-provenance = "github-attestations"
 
 [[tools.ripgrep]]
 version = "15.2.0"
@@ -236,7 +226,7 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478120097"
 
 [[tools.rust]]
-version = "stable"
+version = "1.99.1"
 backend = "core:rust"
 specifiers = ["stable"]
 
@@ -244,7 +234,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-10-19"
+version = "nightly-2026-10-20"
 backend = "core:rust"
 specifiers = ["nightly"]
 
