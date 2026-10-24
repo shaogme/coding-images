@@ -33,19 +33,19 @@ url = "https://github.com/anthropics/claude-code/releases/download/v2.1.310/clau
 url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/670426847"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.4.6"
+version = "1.4.7"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:ef88c996178b55a3c5416f2c8b67a9c343ac0a62c900e7b7158ee2ff1135ad96"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.6/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/667936487"
+checksum = "sha256:b273c791b7647f680598fa1dbdf9c8086bdc42374b2276fa70e900bf8120e1d5"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.7/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/671080004"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:513c74ad3e70323839a65d8dccc6f9977b0903e5facd914cbb06be283c2bb640"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.6/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/667936486"
+checksum = "sha256:67fd4e70be739b1f8b18f90b511da8cd2a7aef24e888e5837402e025bf7fdbfc"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.7/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/671080002"
 
 [[tools."aqua:jetify-com/devbox"]]
 version = "0.18.4"
@@ -236,20 +236,20 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478120097"
 
 [[tools.rust]]
-version = "1.99.1"
-backend = "core:rust"
-specifiers = ["stable"]
-
-[tools.rust.options]
-components = "rust-src"
-
-[[tools.rust]]
 version = "nightly-2026-10-23"
 backend = "core:rust"
 specifiers = ["nightly"]
 
 [tools.rust.options]
 components = "miri,rust-src"
+
+[[tools.rust]]
+version = "1.99.1"
+backend = "core:rust"
+specifiers = ["stable"]
+
+[tools.rust.options]
+components = "rust-src"
 
 [[tools.sccache]]
 version = "0.18.0"
