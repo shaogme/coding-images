@@ -250,7 +250,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-10-23"
+version = "nightly-2026-10-24"
 backend = "core:rust"
 specifiers = ["nightly"]
 
