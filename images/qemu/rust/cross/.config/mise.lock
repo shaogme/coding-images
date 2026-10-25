@@ -3,19 +3,17 @@
 lockfile_version = 3
 
 [[tools."aqua:anomalyco/opencode"]]
-version = "1.19.4"
+version = "2.1.4"
 backend = "aqua:anomalyco/opencode"
 specifiers = ["latest"]
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-arm64"]
-checksum = "sha256:8568230ccd847dc93e95b9f6894379077d3e014a16b48040743573e77c23e85f"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.4/opencode-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/665821079"
+checksum = "sha256:759c9d6e7b246b81bcc93dfc6cc3bb2a38287c75b6202e305eacacb5dd882315"
+url = "https://opencode.ai/files/bin/2.1.4/opencode-linux-arm64.tar.gz"
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-x64"]
-checksum = "sha256:849bd6b3d959a1d2ef200ed1634a51c79a45ca236aa26665d75debd694805cce"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.4/opencode-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/665821750"
+checksum = "sha256:2edaf8cf96e81dec5ee996a3196b03345cf59e5a1673d83a4599bb4afc5c5f6d"
+url = "https://opencode.ai/files/bin/2.1.4/opencode-linux-x64.tar.gz"
 
 [[tools."aqua:anthropics/claude-code"]]
 version = "2.1.310"
@@ -24,11 +22,13 @@ specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
 checksum = "sha256:97ab45a42fdb141dc37d3b12973638ebd8fda59163eca51b02aa2eded0630874"
+checksum_source = "mise-versions"
 url = "https://github.com/anthropics/claude-code/releases/download/v2.1.310/claude-linux-arm64.tar.gz"
 url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/670426481"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
 checksum = "sha256:5bea9e13ac07ea6804c24e6263ec7e5b3d13f81d3f681c92f9784c534425fae1"
+checksum_source = "mise-versions"
 url = "https://github.com/anthropics/claude-code/releases/download/v2.1.310/claude-linux-x64.tar.gz"
 url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/670426847"
 
@@ -39,11 +39,13 @@ specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
 checksum = "sha256:b273c791b7647f680598fa1dbdf9c8086bdc42374b2276fa70e900bf8120e1d5"
+checksum_source = "mise-versions"
 url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.7/agy_cli_linux_arm64.tar.gz"
 url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/671080004"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
 checksum = "sha256:67fd4e70be739b1f8b18f90b511da8cd2a7aef24e888e5837402e025bf7fdbfc"
+checksum_source = "mise-versions"
 url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.7/agy_cli_linux_x64.tar.gz"
 url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/671080002"
 
@@ -54,11 +56,13 @@ specifiers = ["latest"]
 
 [tools."aqua:jetify-com/devbox"."platforms.linux-arm64"]
 checksum = "sha256:313ecedab221aa674484a5815006e17a065ba3bfd07ab6de8aeab38fa483db27"
+checksum_source = "mise-versions"
 url = "https://github.com/jetify-com/devbox/releases/download/0.18.4/devbox_0.18.4_linux_arm64.tar.gz"
 url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/588943536"
 
 [tools."aqua:jetify-com/devbox"."platforms.linux-x64"]
 checksum = "sha256:4a466a8788186da73f3c692697917c79452b758f40b454b4761e6d1fcd2acad9"
+checksum_source = "mise-versions"
 url = "https://github.com/jetify-com/devbox/releases/download/0.18.4/devbox_0.18.4_linux_amd64.tar.gz"
 url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/588943531"
 
@@ -237,11 +241,13 @@ specifiers = ["latest"]
 
 [tools.ripgrep."platforms.linux-arm64"]
 checksum = "sha256:a740b91c82eaf9914cfedd353572f2791cbe0162c84101ee0951058f4dcbc90d"
+checksum_source = "mise-versions"
 url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-unknown-linux-gnu.tar.gz"
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478119579"
 
 [tools.ripgrep."platforms.linux-x64"]
 checksum = "sha256:33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c"
+checksum_source = "mise-versions"
 url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478120097"
 
@@ -268,10 +274,12 @@ specifiers = ["latest"]
 
 [tools.sccache."platforms.linux-arm64"]
 checksum = "sha256:3e47fc4a71b1ddd1b4294a0de9d34498922fdf41e3cd0bda5df3954e3d6deb9d"
+checksum_source = "mise-versions"
 url = "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-aarch64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/mozilla/sccache/releases/assets/671950692"
 
 [tools.sccache."platforms.linux-x64"]
 checksum = "sha256:aa73c7270c997894038c0d8f0d297865f57569e1687883322bc431713d4bb9dd"
+checksum_source = "mise-versions"
 url = "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-x86_64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/mozilla/sccache/releases/assets/671951070"
