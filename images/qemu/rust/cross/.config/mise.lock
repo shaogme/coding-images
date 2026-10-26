@@ -50,21 +50,21 @@ url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1
 url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/671080002"
 
 [[tools."aqua:jetify-com/devbox"]]
-version = "0.18.4"
+version = "0.18.5"
 backend = "aqua:jetify-com/devbox"
 specifiers = ["latest"]
 
 [tools."aqua:jetify-com/devbox"."platforms.linux-arm64"]
-checksum = "sha256:313ecedab221aa674484a5815006e17a065ba3bfd07ab6de8aeab38fa483db27"
+checksum = "sha256:fd443ff292354f1fc03569908de69e9438996962558debce9eed2593d7947ff4"
 checksum_source = "mise-versions"
-url = "https://github.com/jetify-com/devbox/releases/download/0.18.4/devbox_0.18.4_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/588943536"
+url = "https://github.com/jetify-com/devbox/releases/download/0.18.5/devbox_0.18.5_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/676206264"
 
 [tools."aqua:jetify-com/devbox"."platforms.linux-x64"]
-checksum = "sha256:4a466a8788186da73f3c692697917c79452b758f40b454b4761e6d1fcd2acad9"
+checksum = "sha256:5b452a778b620fcbff460fe9cbd86ad87f5eb50b8b58923a429a5cf189fbf00d"
 checksum_source = "mise-versions"
-url = "https://github.com/jetify-com/devbox/releases/download/0.18.4/devbox_0.18.4_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/588943531"
+url = "https://github.com/jetify-com/devbox/releases/download/0.18.5/devbox_0.18.5_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/676206250"
 
 [[tools.cargo-binstall]]
 version = "1.26.1"
