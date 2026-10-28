@@ -20,6 +20,14 @@ owner = "root"
 run_as = "root"
 
 [[bootstrap.actions]]
+id = "run-podman"
+kind = "filesystem.ensure_dir"
+path = "/run/podman"
+mode = "0755"
+owner = "root"
+run_as = "root"
+
+[[bootstrap.actions]]
 id = "docker-link"
 kind = "filesystem.ensure_symlink"
 link = "/usr/local/bin/docker"
