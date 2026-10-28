@@ -16,21 +16,21 @@ checksum = "sha256:6d597970a8cc448f1b9a9f645532584b339dd3ab9583bb5f063f13d83e547
 url = "https://opencode.ai/files/bin/2.2.0/opencode-linux-x64.tar.gz"
 
 [[tools."aqua:anthropics/claude-code"]]
-version = "2.1.311"
+version = "2.1.312"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
-checksum = "sha256:f464c31d01cd364d1d5df529dc4c202ce9a05c7a87b9fd4fefebb0a8ffe1ecb5"
+checksum = "sha256:0635c6245b11bbb4ca16e4119b0ac3980ee99e2f8cf5ab6e8d6c0e9e0db3ee5b"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.311/claude-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/679248780"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.312/claude-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/682510791"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
-checksum = "sha256:1e506d1d4466d854f0a2ea662f04122c77475e8c71a680bbbdc1c99fefff3fa7"
+checksum = "sha256:d9324231c4e3dfe342e853f56c752348ae060f9f221cdf4b0f90ef1dc47ee907"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.311/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/679248991"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.312/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/682511222"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
 version = "1.4.8"
@@ -181,8 +181,8 @@ checksum = "sha256:0fd1eb7770598f52a21995edf6ed35fc690400fa437c2386af329519e9143
 url = "https://nodejs.org/dist/v26.12.1/node-v26.12.1-linux-x64.tar.gz"
 
 [[tools."npm:@openai/codex"]]
-version = "0.164.0"
-aube = { path = ".mise/locks/npm-openai-codex/0.164.0", digest = "sha256:684a729c2ca50c2e71ddb4d78b60df8280ff79267c07f0e531849c52115b8597" }
+version = "0.165.0"
+aube = { path = ".mise/locks/npm-openai-codex/0.165.0", digest = "sha256:972042de52a21be82fcf3bbbe27a8dac3e0b0be4bf17a95d562ca981775d5f44" }
 backend = "npm:@openai/codex"
 specifiers = ["latest"]
 
@@ -250,7 +250,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-10-26"
+version = "nightly-2026-10-27"
 backend = "core:rust"
 specifiers = ["nightly"]
 
