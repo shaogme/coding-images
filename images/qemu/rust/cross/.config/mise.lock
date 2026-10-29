@@ -50,21 +50,21 @@ url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1
 url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/687268493"
 
 [[tools."aqua:jetify-com/devbox"]]
-version = "0.18.5"
+version = "0.19.0"
 backend = "aqua:jetify-com/devbox"
 specifiers = ["latest"]
 
 [tools."aqua:jetify-com/devbox"."platforms.linux-arm64"]
-checksum = "sha256:fd443ff292354f1fc03569908de69e9438996962558debce9eed2593d7947ff4"
+checksum = "sha256:f5328264fcc42da5429765039753fa49377432681e063e9b4eb432b7b29a9b9b"
 checksum_source = "mise-versions"
-url = "https://github.com/jetify-com/devbox/releases/download/0.18.5/devbox_0.18.5_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/676206264"
+url = "https://github.com/jetify-com/devbox/releases/download/0.19.0/devbox_0.19.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/689959183"
 
 [tools."aqua:jetify-com/devbox"."platforms.linux-x64"]
-checksum = "sha256:5b452a778b620fcbff460fe9cbd86ad87f5eb50b8b58923a429a5cf189fbf00d"
+checksum = "sha256:13a9c9ca15ffef279f5c37694e7feeeeaed93d7ab7b0a69c7b4301a06bcd21ba"
 checksum_source = "mise-versions"
-url = "https://github.com/jetify-com/devbox/releases/download/0.18.5/devbox_0.18.5_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/676206250"
+url = "https://github.com/jetify-com/devbox/releases/download/0.19.0/devbox_0.19.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/689959181"
 
 [[tools.cargo-binstall]]
 version = "1.26.1"
@@ -196,8 +196,8 @@ checksum = "sha256:5848553868b402d3fabb5b09270649977780a390f832155721025a08b5104
 url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.gz"
 
 [[tools."npm:@openai/codex"]]
-version = "0.165.0"
-aube = { path = ".mise/locks/npm-openai-codex/0.165.0", digest = "sha256:972042de52a21be82fcf3bbbe27a8dac3e0b0be4bf17a95d562ca981775d5f44" }
+version = "0.166.0"
+aube = { path = ".mise/locks/npm-openai-codex/0.166.0", digest = "sha256:b74228de5c6a94f9e2e4218e96555a912ee57bd51c08a3768bf533b575bb6081" }
 backend = "npm:@openai/codex"
 specifiers = ["latest"]
 
