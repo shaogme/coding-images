@@ -24,6 +24,11 @@ sccache = {
     version = "latest",
 }
 
+"cargo:cargo-deny" = {
+    version = "latest",
+    depends = ["cargo-binstall"],
+}
+
 "cargo:cargo-nextest" = {
     version = "latest",
     depends = ["cargo-binstall"],
