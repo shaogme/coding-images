@@ -97,6 +97,11 @@ def _generate_lock(
     return lockfile
 
 
+def _sidecar_directories(lockfile: Path) -> list[str]:
+    """Return generated sidecar directory names supported by this mise version."""
+    return [name for name in (".mise", "locks") if (lockfile.parent / name).is_dir()]
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     runner_temp = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir()))
@@ -107,22 +112,30 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory(prefix="mise-lock-update-", dir=runner_temp) as temporary:
         staging_dir = Path(temporary)
-        generated: list[tuple[Path, Path, Path]] = []
+        generated: list[tuple[Path, Path, Path, list[str]]] = []
         for image in lineage_images:
             destination_config = repo_root / image["context"] / ".config"
             source = _generate_lock(repo_root=repo_root, image=image, staging_dir=staging_dir)
-            generated.append((destination_config / "mise.lock", destination_config / ".mise", source))
+            generated.append(
+                (
+                    destination_config / "mise.lock",
+                    destination_config,
+                    source,
+                    _sidecar_directories(source),
+                )
+            )
 
         # Publish only after every lineage resolved successfully. A network or
         # provider failure therefore leaves all previously committed locks intact.
-        for destination, sidecar_destination, source in generated:
+        for destination, destination_config, source, sidecar_directories in generated:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, destination)
-            sidecar_source = source.parent / ".mise"
-            if sidecar_destination.exists():
-                shutil.rmtree(sidecar_destination)
-            if sidecar_source.is_dir():
-                shutil.copytree(sidecar_source, sidecar_destination)
+            for name in (".mise", "locks"):
+                sidecar_destination = destination_config / name
+                if sidecar_destination.exists():
+                    shutil.rmtree(sidecar_destination)
+            for name in sidecar_directories:
+                shutil.copytree(source.parent / name, destination_config / name)
 
     subprocess.run(["git", "diff", "--check"], cwd=repo_root, check=True)
 

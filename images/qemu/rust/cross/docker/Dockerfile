@@ -22,7 +22,14 @@ RUN mkdir -p /etc/mise/conf.d /usr/local/share/mise /data/cache/mise \
 
 COPY .config/mise.toml /etc/mise/conf.d/30-cross.toml
 COPY .config/mise.lock /etc/mise/mise.lock
-COPY .config/.mise /etc/mise/.mise
+
+RUN --mount=type=bind,source=.config,target=/tmp/mise-config,ro \
+    for path in .mise locks; do \
+        if [ -d "/tmp/mise-config/$path" ]; then \
+            mkdir -p "/etc/mise/$path"; \
+            cp -a "/tmp/mise-config/$path/." "/etc/mise/$path/"; \
+        fi; \
+    done
 
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
