@@ -3,51 +3,51 @@
 lockfile_version = 3
 
 [[tools."aqua:anomalyco/opencode"]]
-version = "2.2.1"
+version = "2.2.3"
 backend = "aqua:anomalyco/opencode"
 specifiers = ["latest"]
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-arm64"]
-checksum = "sha256:c354d8a2dc4152308bf286b5ec7f20b3b3cfc71f9476e64f6aa274142505b2f8"
-url = "https://opencode.ai/files/bin/2.2.1/opencode-linux-arm64.tar.gz"
+checksum = "sha256:72aac82c021268f6cc9810de913f8d47d05626b1ad974d7f5dc5b087e1ad0f68"
+url = "https://opencode.ai/files/bin/2.2.3/opencode-linux-arm64.tar.gz"
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-x64"]
-checksum = "sha256:3179551ddf69877ca24a960b0175e94405cf3f52147f1eec705094374bef49f2"
-url = "https://opencode.ai/files/bin/2.2.1/opencode-linux-x64.tar.gz"
+checksum = "sha256:ef3aeeaf5522b10d69a3da7bbd6e6d8d259f845833d96b8310767d3407b18a35"
+url = "https://opencode.ai/files/bin/2.2.3/opencode-linux-x64.tar.gz"
 
 [[tools."aqua:anthropics/claude-code"]]
-version = "2.1.312"
+version = "2.1.314"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
-checksum = "sha256:0635c6245b11bbb4ca16e4119b0ac3980ee99e2f8cf5ab6e8d6c0e9e0db3ee5b"
+checksum = "sha256:6acfc0d2f965bf910f12e89da32cc2bc826974e555d50c4a4b0936e042ec749b"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.312/claude-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/682510791"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.314/claude-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/690337506"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
-checksum = "sha256:d9324231c4e3dfe342e853f56c752348ae060f9f221cdf4b0f90ef1dc47ee907"
+checksum = "sha256:348a302629f3734a2a7318a97eb6a05d4c30e772f9c8366cb78a55977eca46da"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.312/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/682511222"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.314/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/690337852"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.4.10"
+version = "1.4.11"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:107b7499ca90018ab2b6c1b636cdec4251dfd836656526845e354be1bfe05eba"
+checksum = "sha256:debb2c056e387be63fdf86d48dfcc99ed1f523e51c5067abd119d78bd36e8a18"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.10/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/687268499"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.11/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/691062670"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:ed0526231e3916b6cc1b025cf356862e88cc036e27c3c5eae5a580495fc79773"
+checksum = "sha256:d17c426977326361f3d81f3ea22820e967164285923de020247e460dcb9d15c3"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.10/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/687268493"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.11/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/691062673"
 
 [[tools."aqua:jetify-com/devbox"]]
 version = "0.19.0"
@@ -115,13 +115,13 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.gz"
 
 [[tools."npm:@openai/codex"]]
 version = "0.166.0"
-aube = { path = ".mise/locks/npm-openai-codex/0.166.0", digest = "sha256:b74228de5c6a94f9e2e4218e96555a912ee57bd51c08a3768bf533b575bb6081" }
+aube = { path = "locks/npm-openai-codex/0.166.0", digest = "sha256:b74228de5c6a94f9e2e4218e96555a912ee57bd51c08a3768bf533b575bb6081" }
 backend = "npm:@openai/codex"
 specifiers = ["latest"]
 
 [[tools."npm:@yarnpkg/cli-dist"]]
 version = "4.18.1"
-aube = { path = ".mise/locks/npm-yarnpkg-cli-dist/4.18.1", digest = "sha256:5dd087387a3d871bb0ec31fb7eb7d3160af85935d9abd0481619571b8f759196" }
+aube = { path = "locks/npm-yarnpkg-cli-dist/4.18.1", digest = "sha256:5dd087387a3d871bb0ec31fb7eb7d3160af85935d9abd0481619571b8f759196" }
 backend = "npm:@yarnpkg/cli-dist"
 specifiers = ["latest"]
 
