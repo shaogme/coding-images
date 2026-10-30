@@ -55,14 +55,14 @@ jobs:
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -Eeuo pipefail
-          if [ -z "$(git status --porcelain -- ':(glob)images/**/.config/mise.lock' ':(glob)images/**/.config/.mise/**')" ]; then
+          if [ -z "$(git status --porcelain -- ':(glob)images/**/.config/mise.lock' ':(glob)images/**/.config/.mise/**' ':(glob)images/**/.config/locks/**')" ]; then
             echo 'No mise lockfile changes.'
             exit 0
           fi
           test -n "$GH_TOKEN"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- ':(glob)images/**/.config/mise.lock' ':(glob)images/**/.config/.mise/**'
+          git add -- ':(glob)images/**/.config/mise.lock' ':(glob)images/**/.config/.mise/**' ':(glob)images/**/.config/locks/**'
           git commit -m 'chore(mise): update lockfiles'
           branch="mise-lock-update-${GITHUB_RUN_ID}"
           git push --set-upstream origin "HEAD:$branch"
