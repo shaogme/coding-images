@@ -197,13 +197,13 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.gz"
 
 [[tools."npm:@openai/codex"]]
 version = "0.166.0"
-aube = { path = ".mise/locks/npm-openai-codex/0.166.0", digest = "sha256:b74228de5c6a94f9e2e4218e96555a912ee57bd51c08a3768bf533b575bb6081" }
+aube = { path = "locks/npm-openai-codex/0.166.0", digest = "sha256:b74228de5c6a94f9e2e4218e96555a912ee57bd51c08a3768bf533b575bb6081" }
 backend = "npm:@openai/codex"
 specifiers = ["latest"]
 
 [[tools."npm:@yarnpkg/cli-dist"]]
 version = "4.18.1"
-aube = { path = ".mise/locks/npm-yarnpkg-cli-dist/4.18.1", digest = "sha256:5dd087387a3d871bb0ec31fb7eb7d3160af85935d9abd0481619571b8f759196" }
+aube = { path = "locks/npm-yarnpkg-cli-dist/4.18.1", digest = "sha256:5dd087387a3d871bb0ec31fb7eb7d3160af85935d9abd0481619571b8f759196" }
 backend = "npm:@yarnpkg/cli-dist"
 specifiers = ["latest"]
 
