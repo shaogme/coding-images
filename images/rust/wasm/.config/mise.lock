@@ -3,51 +3,51 @@
 lockfile_version = 3
 
 [[tools."aqua:anomalyco/opencode"]]
-version = "2.2.3"
+version = "2.2.5"
 backend = "aqua:anomalyco/opencode"
 specifiers = ["latest"]
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-arm64"]
-checksum = "sha256:72aac82c021268f6cc9810de913f8d47d05626b1ad974d7f5dc5b087e1ad0f68"
-url = "https://opencode.ai/files/bin/2.2.3/opencode-linux-arm64.tar.gz"
+checksum = "sha256:5a528f42caf576c6cdece6a191eb273d3db54effa5518e0402684d8f8026aeb6"
+url = "https://opencode.ai/files/bin/2.2.5/opencode-linux-arm64.tar.gz"
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-x64"]
-checksum = "sha256:ef3aeeaf5522b10d69a3da7bbd6e6d8d259f845833d96b8310767d3407b18a35"
-url = "https://opencode.ai/files/bin/2.2.3/opencode-linux-x64.tar.gz"
+checksum = "sha256:09f44302c10fd036912f59c81fd1aef5df45dd06f649197f9dfc9bbe2a79614e"
+url = "https://opencode.ai/files/bin/2.2.5/opencode-linux-x64.tar.gz"
 
 [[tools."aqua:anthropics/claude-code"]]
-version = "2.1.314"
+version = "2.1.316"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
-checksum = "sha256:6acfc0d2f965bf910f12e89da32cc2bc826974e555d50c4a4b0936e042ec749b"
+checksum = "sha256:5f82c7fd9f289c9aad37792ffa5ca1bcd40d6dd3298b3a36ce01179e12ab2b14"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.314/claude-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/690337506"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.316/claude-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/693882163"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
-checksum = "sha256:348a302629f3734a2a7318a97eb6a05d4c30e772f9c8366cb78a55977eca46da"
+checksum = "sha256:9ca14cd81a7b0d9654d392fc1253773e70f31f470aa98334732744956cd1006b"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.314/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/690337852"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.316/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/693882314"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.4.11"
+version = "1.4.12"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:debb2c056e387be63fdf86d48dfcc99ed1f523e51c5067abd119d78bd36e8a18"
+checksum = "sha256:30dd61ebe1f0a8829057ea2de29dad08c710dd972ce4c02949f51e632135a86b"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.11/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/691062670"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.12/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/693488646"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:d17c426977326361f3d81f3ea22820e967164285923de020247e460dcb9d15c3"
+checksum = "sha256:3368d1923fc869f21ec8fce83252a8c96c89283aac9393958ac91fbf7a3949e4"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.11/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/691062673"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.4.12/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/693488645"
 
 [[tools."aqua:jetify-com/devbox"]]
 version = "0.19.0"
@@ -67,20 +67,20 @@ url = "https://github.com/jetify-com/devbox/releases/download/0.19.0/devbox_0.19
 url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/689959181"
 
 [[tools.cargo-binstall]]
-version = "1.26.1"
+version = "1.26.2"
 backend = "aqua:cargo-bins/cargo-binstall"
 specifiers = ["latest"]
 
 [tools.cargo-binstall."platforms.linux-arm64"]
-checksum = "sha256:5e1413cda21a619b9eb66477c9a78904aadc70e724855d2b3572209ed12f67c3"
-url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.26.1/cargo-binstall-aarch64-unknown-linux-gnu.tgz"
-url_api = "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/assets/672373878"
+checksum = "sha256:027438af19e7d9d90accabbb047101c8636c40253f760e92e84cf2f90feddad3"
+url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.26.2/cargo-binstall-aarch64-unknown-linux-gnu.tgz"
+url_api = "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/assets/695465531"
 provenance = "github-attestations"
 
 [tools.cargo-binstall."platforms.linux-x64"]
-checksum = "sha256:97d3fe139df2eb0947e9db09c129e4381847440a4622d2a94fc38ce4bd52f378"
-url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.26.1/cargo-binstall-x86_64-unknown-linux-gnu.tgz"
-url_api = "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/assets/672372547"
+checksum = "sha256:4f28eba175325f67f7c4bb8ae8686914d2d88fead279c0b8c4d3125264d7a512"
+url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.26.2/cargo-binstall-x86_64-unknown-linux-gnu.tgz"
+url_api = "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/assets/695464312"
 provenance = "github-attestations"
 
 [[tools."cargo:cargo-audit"]]
@@ -271,7 +271,7 @@ components = "rust-src"
 targets = "wasm32-unknown-unknown"
 
 [[tools.rust]]
-version = "nightly-2026-10-29"
+version = "nightly-2026-10-30"
 backend = "core:rust"
 specifiers = ["nightly"]
 
@@ -288,7 +288,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-10-29"
+version = "nightly-2026-10-30"
 backend = "core:rust"
 specifiers = ["nightly"]
 
