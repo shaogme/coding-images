@@ -98,8 +98,8 @@ def _generate_lock(
 
 
 def _sidecar_directories(lockfile: Path) -> list[str]:
-    """Return generated sidecar directory names supported by this mise version."""
-    return [name for name in (".mise", "locks") if (lockfile.parent / name).is_dir()]
+    """Return the generated lock sidecar directory, when present."""
+    return ["locks"] if (lockfile.parent / "locks").is_dir() else []
 
 
 def main() -> None:
@@ -130,10 +130,9 @@ def main() -> None:
         for destination, destination_config, source, sidecar_directories in generated:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, destination)
-            for name in (".mise", "locks"):
-                sidecar_destination = destination_config / name
-                if sidecar_destination.exists():
-                    shutil.rmtree(sidecar_destination)
+            sidecar_destination = destination_config / "locks"
+            if sidecar_destination.exists():
+                shutil.rmtree(sidecar_destination)
             for name in sidecar_directories:
                 shutil.copytree(source.parent / name, destination_config / name)
 

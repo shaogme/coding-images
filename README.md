@@ -626,7 +626,7 @@ images/rust/wasm/
 ├── .config/
 │   ├── mise.toml         # 该镜像的增量 mise 工具清单 (30-wasm.toml)
 │   ├── mise.lock         # common + rust-common + wasm 的双平台 lineage lock
-│   └── .mise/             # npm backend 的锁定 sidecar（如有）
+│   └── locks/              # npm backend 的锁定 sidecar（如有）
 ├── .devcontainer/
 │   └── devcontainer.json # 对应层级的 Dev Container 标准化配置
 ├── docker/
@@ -651,7 +651,11 @@ FROM ${RUNTIME_PARENT_IMAGE} AS runtime-base
 FROM ${BUILDER_PARENT_IMAGE} AS mise-builder
 COPY .config/mise.toml /etc/mise/conf.d/10-project.toml
 COPY .config/mise.lock /etc/mise/mise.lock
-COPY .config/.mise /etc/mise/.mise
+RUN --mount=type=bind,source=.config,target=/tmp/mise-config,ro \
+    if [ -d /tmp/mise-config/locks ]; then \
+        mkdir -p /etc/mise/locks; \
+        cp -a /tmp/mise-config/locks/. /etc/mise/locks/; \
+    fi
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     if [ -f /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi; \
     set -eu; \
