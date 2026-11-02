@@ -139,7 +139,7 @@ backend = "cargo:cross"
 specifiers = ["latest"]
 
 [[tools."cargo:flamegraph"]]
-version = "0.6.14"
+version = "0.6.15"
 backend = "cargo:flamegraph"
 specifiers = ["latest"]
 
