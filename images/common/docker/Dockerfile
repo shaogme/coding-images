@@ -49,7 +49,8 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
 # image's layer.
 RUN nix profile add \
         nixpkgs#bubblewrap \
-        nixpkgs#rsync
+        nixpkgs#rsync \
+        nixpkgs#nixfmt
 
 RUN --mount=type=bind,from=mise-builder,target=/mnt/mise-builder,ro \
     set -eu; \
