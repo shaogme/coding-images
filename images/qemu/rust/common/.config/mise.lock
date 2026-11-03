@@ -114,7 +114,7 @@ backend = "cargo:cargo-geiger"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-nextest"]]
-version = "0.9.150"
+version = "0.9.151"
 backend = "cargo:cargo-nextest"
 specifiers = ["latest"]
 
@@ -255,7 +255,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-11-01"
+version = "nightly-2026-11-02"
 backend = "core:rust"
 specifiers = ["nightly"]
 
