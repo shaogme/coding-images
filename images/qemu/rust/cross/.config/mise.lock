@@ -129,7 +129,7 @@ backend = "cargo:cargo-sweep"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-zigbuild"]]
-version = "0.24.0"
+version = "0.24.1"
 backend = "cargo:cargo-zigbuild"
 specifiers = ["latest"]
 
