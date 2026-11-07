@@ -3,17 +3,17 @@
 lockfile_version = 4
 
 [[tools."aqua:anomalyco/opencode"]]
-version = "2.2.5"
+version = "2.2.6"
 backend = "aqua:anomalyco/opencode"
 specifiers = ["latest"]
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-arm64"]
-checksum = "sha256:5a528f42caf576c6cdece6a191eb273d3db54effa5518e0402684d8f8026aeb6"
-url = "https://opencode.ai/files/bin/2.2.5/opencode-linux-arm64.tar.gz"
+checksum = "sha256:f2d27600c367e45057d6a16f6a5c2aa8d77b41a9b10d4bc3d849c2f88870e944"
+url = "https://opencode.ai/files/bin/2.2.6/opencode-linux-arm64.tar.gz"
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-x64"]
-checksum = "sha256:09f44302c10fd036912f59c81fd1aef5df45dd06f649197f9dfc9bbe2a79614e"
-url = "https://opencode.ai/files/bin/2.2.5/opencode-linux-x64.tar.gz"
+checksum = "sha256:08bb21d6326ce740d91cce7ebe88a6536933f6e1e30353b91a06b01f25da306c"
+url = "https://opencode.ai/files/bin/2.2.6/opencode-linux-x64.tar.gz"
 
 [[tools."aqua:anthropics/claude-code"]]
 version = "2.1.319"
