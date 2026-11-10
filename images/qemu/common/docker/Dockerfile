@@ -4,19 +4,22 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Install QEMU, OVMF firmware, swtpm, cloud-init utilities, ISO/disk tools, and virtual networking via nix profile
-RUN nix profile add \
-        nixpkgs#qemu \
-        nixpkgs#OVMF.fd \
-        nixpkgs#swtpm \
-        nixpkgs#cloud-utils \
-        nixpkgs#xorriso \
-        nixpkgs#mtools \
-        nixpkgs#dnsmasq \
-        nixpkgs#bridge-utils \
-        nixpkgs#socat \
-        nixpkgs#openssh \
-        nixpkgs#sshpass
+# Build a QEMU variant without graphical, remote-display, audio, or 3D backends.
+COPY docker/qemu-headless.nix /tmp/qemu-headless.nix
+RUN set -eu; \
+    qemu_path="$(nix build --impure --no-link --print-out-paths --file /tmp/qemu-headless.nix)"; \
+    nix profile add "$qemu_path" \
+        'nixpkgs#OVMF.fd^out' \
+        'nixpkgs#swtpm^out' \
+        'nixpkgs#cloud-utils^out' \
+        'nixpkgs#xorriso^out' \
+        'nixpkgs#mtools^out' \
+        'nixpkgs#dnsmasq^out' \
+        'nixpkgs#bridge-utils^out' \
+        'nixpkgs#socat^out' \
+        'nixpkgs#openssh^out' \
+        'nixpkgs#sshpass^out'; \
+    nix store gc
 
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-qemu.toml
 

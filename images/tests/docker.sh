@@ -66,8 +66,18 @@ docker_run --rm --entrypoint /bin/sh "$image" -c '
 '
 
 echo "==> checking the image tool through the default handoff"
+tool_environment=()
+if [[ "$target" == podman ]]; then
+    # The remote CLI only needs a valid remote transport to report its version;
+    # no engine is started by this smoke test.
+    tool_environment+=(
+        --env CONTAINER_HOST=ssh://test@localhost
+        --env DOCKER_HOST=ssh://test@localhost
+    )
+fi
 tool_output="$(docker_run --rm \
         --env RUN_AS_ROOT=1 \
+        "${tool_environment[@]}" \
         "$image" /bin/sh -c "command -v ${required_command} && ${required_command} --version" 2>&1)" || {
     echo "$tool_output" >&2
     exit 1

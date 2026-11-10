@@ -43,7 +43,8 @@ WORKDIR /workspace
 
 # Install WebAssembly and headless browser testing packages via nix profile.
 RUN nix profile add \
-        nixpkgs#fontconfig \
+        nixpkgs#fontconfig.bin \
+        nixpkgs#fontconfig.out \
         nixpkgs#dejavu_fonts \
         nixpkgs#mesa \
         nixpkgs#firefox \
@@ -53,11 +54,17 @@ RUN nix profile add \
 RUN set -eu; \
     mkdir -p /etc/fonts; \
     if [ -d /nix/var/nix/profiles/default/etc/fonts ]; then \
-        cp -rL /nix/var/nix/profiles/default/etc/fonts/* /etc/fonts/ 2>/dev/null || true; \
+        fontconfig_dir=/nix/var/nix/profiles/default/etc/fonts; \
     elif [ -d /root/.nix-profile/etc/fonts ]; then \
-        cp -rL /root/.nix-profile/etc/fonts/* /etc/fonts/ 2>/dev/null || true; \
+        fontconfig_dir=/root/.nix-profile/etc/fonts; \
+    else \
+        echo 'fontconfig configuration is missing from the Nix profile' >&2; \
+        exit 1; \
     fi; \
-    fc-cache -fv || true; \
+    cp -rL "$fontconfig_dir/." /etc/fonts/; \
+    test -s /etc/fonts/fonts.conf; \
+    fc-cache -f -v; \
+    fc-match sans-serif >/dev/null; \
     mkdir -p /etc/firefox/policies; \
     { \
         echo '{'; \

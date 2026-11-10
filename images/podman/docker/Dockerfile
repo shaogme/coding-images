@@ -4,11 +4,13 @@ ARG TARGETARCH
 
 WORKDIR /workspace
 
-# Install the Podman CLI and the remote Compose client. The engine, OCI
-# runtime, monitor, network stack, and storage live in nixos-dockers/podman.
-RUN nix profile add \
-        nixpkgs#podman \
-        nixpkgs#podman-compose
+# Build only Podman's remote CLI. The engine, OCI runtime, monitor, network
+# stack, and storage live in nixos-dockers/podman.
+COPY docker/podman-remote.nix /tmp/podman-remote.nix
+RUN set -eu; \
+    podman_path="$(nix build --impure --no-link --print-out-paths --file /tmp/podman-remote.nix)"; \
+    nix profile add "$podman_path" 'nixpkgs#podman-compose^out'; \
+    nix store gc
 
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-podman.toml
 

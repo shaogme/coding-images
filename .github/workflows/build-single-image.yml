@@ -90,6 +90,14 @@ jobs:
               }
             }
 
+      - name: Free runner disk space
+        run: |
+          set -Eeuo pipefail
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune --all --force --volumes
+          df -h /
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -142,6 +150,7 @@ jobs:
             test -f "$archive" && test -f "$checksum"
             (cd "$(dirname "$archive")" && sha256sum -c "$(basename "$checksum")")
             gzip -dc "$archive" | docker load
+            rm -f "$archive" "$checksum"
           }
 
           if [ "$RUNTIME_PARENT" = 'mise' ]; then
@@ -164,6 +173,8 @@ jobs:
               docker tag "local/coding-images/${BUILDER_ARTIFACT_PARENT}-builder:${ARCH}" "local/coding-images/${BUILDER_PARENT_TAG}:${ARCH}"
             fi
           fi
+
+          df -h /
 
       - name: Configure independent BuildKit caches
         id: cache
