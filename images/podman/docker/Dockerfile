@@ -9,7 +9,10 @@ WORKDIR /workspace
 COPY docker/podman-remote.nix /tmp/podman-remote.nix
 RUN set -eu; \
     podman_path="$(nix build --impure --no-link --print-out-paths --file /tmp/podman-remote.nix)"; \
+    rm -rf /homeless-shelter /homeless-shelter-podman-remote; \
     nix profile add "$podman_path" 'nixpkgs#podman-compose^out'; \
+    rm -rf /homeless-shelter /homeless-shelter-podman-remote; \
+    rm -f /tmp/podman-remote.nix; \
     nix store gc
 
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-podman.toml

@@ -3,6 +3,7 @@ let
 in
 pkgs.podman.overrideAttrs (previousAttrs: {
   pname = "podman-remote";
+  HOME = "/homeless-shelter-podman-remote";
   outputs = [ "out" ];
   patches = [ ];
   buildInputs = [ ];

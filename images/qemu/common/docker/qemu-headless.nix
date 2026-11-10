@@ -17,6 +17,7 @@ let
 in
 qemu.overrideAttrs (previousAttrs: {
   pname = "qemu-headless";
+  HOME = "/homeless-shelter-qemu-headless";
   configureFlags = previousAttrs.configureFlags ++ [
     "--audio-drv-list="
     "-Dgtk=disabled"

@@ -8,6 +8,7 @@ WORKDIR /workspace
 COPY docker/qemu-headless.nix /tmp/qemu-headless.nix
 RUN set -eu; \
     qemu_path="$(nix build --impure --no-link --print-out-paths --file /tmp/qemu-headless.nix)"; \
+    rm -rf /homeless-shelter /homeless-shelter-qemu-headless; \
     nix profile add "$qemu_path" \
         'nixpkgs#OVMF.fd^out' \
         'nixpkgs#swtpm^out' \
@@ -19,6 +20,8 @@ RUN set -eu; \
         'nixpkgs#socat^out' \
         'nixpkgs#openssh^out' \
         'nixpkgs#sshpass^out'; \
+    rm -rf /homeless-shelter /homeless-shelter-qemu-headless; \
+    rm -f /tmp/qemu-headless.nix; \
     nix store gc
 
 COPY .config/dev-env.toml /etc/dev-env/profiles.d/30-coding-images-qemu.toml
