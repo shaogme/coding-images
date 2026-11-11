@@ -33,21 +33,21 @@ url = "https://github.com/anthropics/claude-code/releases/download/v2.1.322/clau
 url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/729757174"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.5.4"
+version = "1.5.5"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:aa8870d1b93b646ed52fd0862752b3ec8c5e91afd22d943eb2a9a0b0671fd939"
+checksum = "sha256:f6faff7b47ad2d9a60ebca9d774239a1cd23e53a8ca6d812c1e9583909dca655"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.4/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/730106174"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.5/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/732160129"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:96cccfec6f205db8fa4016531bda1567827f1d056095238735af6b8b55a7f7d6"
+checksum = "sha256:bfe2c25edeadd98c2942417c9972ee0e1faa3f0afdc90711e84d5f3a633b5078"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.4/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/730106163"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.5/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/732160120"
 
 [[tools."aqua:jetify-com/devbox"]]
 version = "0.20.0"
@@ -186,8 +186,8 @@ checksum = "sha256:5848553868b402d3fabb5b09270649977780a390f832155721025a08b5104
 url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.gz"
 
 [[tools."npm:@openai/codex"]]
-version = "0.167.0"
-aube = { path = "locks/npm-openai-codex/0.167.0", digest = "sha256:865f13165352a80ab05977a3061c9f61ce18653962d344b8cf84fa0369cf0e33" }
+version = "0.167.1"
+aube = { path = "locks/npm-openai-codex/0.167.1", digest = "sha256:e42c0c05ae651c20caa46947999445dc5f573b702c462f35ed2ac214018fa838" }
 backend = "npm:@openai/codex"
 specifiers = ["latest"]
 
