@@ -186,8 +186,8 @@ checksum = "sha256:518674de2b621728a5e4486f5fb3b7d2900bb3cc4aa97969edaa463db99f9
 url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-linux-x64.tar.gz"
 
 [[tools."npm:@openai/codex"]]
-version = "0.167.1"
-aube = { path = "locks/npm-openai-codex/0.167.1", digest = "sha256:e42c0c05ae651c20caa46947999445dc5f573b702c462f35ed2ac214018fa838" }
+version = "0.167.2"
+aube = { path = "locks/npm-openai-codex/0.167.2", digest = "sha256:6ddb270efde50e460a5af09a82c30061b4dd8586bf087b207e845484aed8c7fd" }
 backend = "npm:@openai/codex"
 specifiers = ["latest"]
 
@@ -255,7 +255,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-11-10"
+version = "nightly-2026-11-11"
 backend = "core:rust"
 specifiers = ["nightly"]
 
