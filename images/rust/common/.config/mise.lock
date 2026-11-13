@@ -16,21 +16,21 @@ checksum = "sha256:89a6cee227b54bc011179c528a5e63176032462b1a5e21723b616801cddc2
 url = "https://opencode.ai/files/bin/2.2.7/opencode-linux-x64.tar.gz"
 
 [[tools."aqua:anthropics/claude-code"]]
-version = "2.1.322"
+version = "2.1.323"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
-checksum = "sha256:65c1ad35e804ef463f34585d0c080afd4bf2e9018c7bad1f29efb8df4e9c3750"
+checksum = "sha256:808fa9c71caf7ebed9383d3e38bee6e7dd2fa80877ac12c6c27438786295099e"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.322/claude-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/729756936"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.323/claude-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/741010436"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
-checksum = "sha256:3d2bc5ae54d4d4cd63510e9fcca5b6d48d2b18806708df8c8f691aa486c5dca8"
+checksum = "sha256:522255678548859b9799b7b098c03a3aa286c9a9ede01957e35f4713ccc43631"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.322/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/729757174"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.323/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/741010604"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
 version = "1.5.7"
@@ -255,7 +255,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-11-11"
+version = "nightly-2026-11-12"
 backend = "core:rust"
 specifiers = ["nightly"]
 
