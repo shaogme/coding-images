@@ -33,38 +33,38 @@ url = "https://github.com/anthropics/claude-code/releases/download/v2.1.326/clau
 url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/756012058"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.5.9"
+version = "1.5.10"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:3a18c238c7ee6661e43df7e824a7d4c1bed78aeeda09430921a0f1dbfe825bca"
+checksum = "sha256:5ecb4e7763dc497a7d0157d5605a8c86ec55f24dc4efd8f597bc499d2ebca7c6"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.9/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/746444887"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.10/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/757804498"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:8b1f5e56779f2434a0af36f1b715a8392a084de550f8c68bc79821f95fabf3fa"
+checksum = "sha256:72fb2946d6f5bee3d4e8928fb8a7901104361566619e69d40ae6dc03e094917b"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.9/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/746444888"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.10/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/757804504"
 
 [[tools."aqua:jetify-com/devbox"]]
-version = "0.21.0"
+version = "0.22.0"
 backend = "aqua:jetify-com/devbox"
 specifiers = ["latest"]
 
 [tools."aqua:jetify-com/devbox"."platforms.linux-arm64"]
-checksum = "sha256:fc06d364a308ca3db97d50cd941c24f0f663c5fcbac5f1c77b879f4d0f1fa7f4"
+checksum = "sha256:981c3052a2306defe435c927b239906c37ffc89778f055779cbcb047b0fe88d2"
 checksum_source = "mise-versions"
-url = "https://github.com/jetify-com/devbox/releases/download/0.21.0/devbox_0.21.0_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/744450995"
+url = "https://github.com/jetify-com/devbox/releases/download/0.22.0/devbox_0.22.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/757627672"
 
 [tools."aqua:jetify-com/devbox"."platforms.linux-x64"]
-checksum = "sha256:9afb537352f3466d59c0316524fc03ee722eea6d54c0ee9ec6e2afc53a70a92c"
+checksum = "sha256:237516c29fafebf683492a7f2fce8a64b06f5032544d85ad26acfaa03fc863ed"
 checksum_source = "mise-versions"
-url = "https://github.com/jetify-com/devbox/releases/download/0.21.0/devbox_0.21.0_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/744450997"
+url = "https://github.com/jetify-com/devbox/releases/download/0.22.0/devbox_0.22.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/jetify-com/devbox/releases/assets/757627674"
 
 [[tools.gh]]
 version = "2.104.0"
