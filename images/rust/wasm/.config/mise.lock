@@ -16,38 +16,38 @@ checksum = "sha256:563b5d663637226b6e3bb4bb6803281bc39b0d2cd88db06d674b6420aab00
 url = "https://opencode.ai/files/bin/2.3.2/opencode-linux-x64.tar.gz"
 
 [[tools."aqua:anthropics/claude-code"]]
-version = "2.1.327"
+version = "2.1.328"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-arm64"]
-checksum = "sha256:39d249137bacdd872d536d2aa50fd52bedd5d55c79e35efce96b9f658b2ea6d8"
+checksum = "sha256:e95be009ef9548aec0bd34fe2d2736e9b887aef7452b31a8cd3d00cfe0ed7382"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.327/claude-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/760565151"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.328/claude-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/765459532"
 
 [tools."aqua:anthropics/claude-code"."platforms.linux-x64"]
-checksum = "sha256:7f03a9981918fbd38eca529bdd19807eedb021a9ed2feb9923dc10a581a5aa1f"
+checksum = "sha256:4404b3dc35afe7dde16c572197f69c210dffdb038f05ee3c532e683732f5aa9f"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.327/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/760565483"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.328/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/765460041"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.5.11"
+version = "1.5.12"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:de4fea15f83f40685cb30374b58337318d58340efcc8779a2eb1461b620b69f4"
+checksum = "sha256:594046de1b91561f7fe16476365e3843038ecca56f5f59af45cf9d3091e43bd4"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.11/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/762273496"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.12/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/765573236"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:df652c98fdf519a87c017b4e1d92f3fdb66c344de16e5e685c596637bbd28334"
+checksum = "sha256:0f0cb851cdc9fbedd50432570aa6ae9c4c398b9ea3f1e23e7776f707643c5b3e"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.11/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/762273489"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.12/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/765573237"
 
 [[tools."aqua:jetify-com/devbox"]]
 version = "0.22.0"
@@ -271,7 +271,7 @@ components = "rust-src"
 targets = "wasm32-unknown-unknown"
 
 [[tools.rust]]
-version = "nightly-2026-11-17"
+version = "nightly-2026-11-18"
 backend = "core:rust"
 specifiers = ["nightly"]
 
@@ -288,7 +288,7 @@ specifiers = ["stable"]
 components = "rust-src"
 
 [[tools.rust]]
-version = "nightly-2026-11-17"
+version = "nightly-2026-11-18"
 backend = "core:rust"
 specifiers = ["nightly"]
 
