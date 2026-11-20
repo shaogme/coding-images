@@ -114,8 +114,8 @@ checksum = "sha256:518674de2b621728a5e4486f5fb3b7d2900bb3cc4aa97969edaa463db99f9
 url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-linux-x64.tar.gz"
 
 [[tools."npm:@openai/codex"]]
-version = "0.170.0"
-aube = { path = "locks/npm-openai-codex/0.170.0", digest = "sha256:8c8bbd97a5ea2365a778f4a1499f27e7df568b780ce7cd188c0cfc15131ade6c" }
+version = "0.171.0"
+aube = { path = "locks/npm-openai-codex/0.171.0", digest = "sha256:cfb29fff25b77be8ac5f380fbe4ba7cb9f4ef744c525d064f3832f6f8df64ecc" }
 backend = "npm:@openai/codex"
 specifiers = ["latest"]
 
