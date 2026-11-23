@@ -3,17 +3,17 @@
 lockfile_version = 4
 
 [[tools."aqua:anomalyco/opencode"]]
-version = "2.3.2"
+version = "2.4.0"
 backend = "aqua:anomalyco/opencode"
 specifiers = ["latest"]
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-arm64"]
-checksum = "sha256:9d10185acdb72336e086e699ca363a6065f410fd3c1caed0dc8046e95ac06ccb"
-url = "https://opencode.ai/files/bin/2.3.2/opencode-linux-arm64.tar.gz"
+checksum = "sha256:fed468566215fd38b26abab99018240c0d30772d3f45aee25621664ceff7e360"
+url = "https://opencode.ai/files/bin/2.4.0/opencode-linux-arm64.tar.gz"
 
 [tools."aqua:anomalyco/opencode"."platforms.linux-x64"]
-checksum = "sha256:563b5d663637226b6e3bb4bb6803281bc39b0d2cd88db06d674b6420aab009b0"
-url = "https://opencode.ai/files/bin/2.3.2/opencode-linux-x64.tar.gz"
+checksum = "sha256:66cf6adeb02fbfe9ccbb1f6497fcf46cecf2d299a1dc3a7a32e01ea30ff20201"
+url = "https://opencode.ai/files/bin/2.4.0/opencode-linux-x64.tar.gz"
 
 [[tools."aqua:anthropics/claude-code"]]
 version = "2.1.330"
@@ -33,21 +33,21 @@ url = "https://github.com/anthropics/claude-code/releases/download/v2.1.330/clau
 url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/773030426"
 
 [[tools."aqua:google-antigravity/antigravity-cli"]]
-version = "1.5.14"
+version = "1.5.15"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-arm64"]
-checksum = "sha256:e5f69a3123fac66974b303d9a201f381a0fb32b3ef869d9139da85d5caf67a2a"
+checksum = "sha256:e5b5d7ca1dda2cfdc0b09c72931320c3ef5c481a14dbda137304107ce6e776b1"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.14/agy_cli_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/774857837"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.15/agy_cli_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/781897975"
 
 [tools."aqua:google-antigravity/antigravity-cli"."platforms.linux-x64"]
-checksum = "sha256:d58386322d2073e96b33f7cc32b4e9ae2db6228f58440369725967b2de48c7b5"
+checksum = "sha256:8d9913298602049ef29e9669f35252b6b79571979ce1bd0fb27753c7bac84114"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.14/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/774857841"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.15/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/781897979"
 
 [[tools."aqua:jetify-com/devbox"]]
 version = "0.22.0"
@@ -273,18 +273,18 @@ specifiers = ["nightly"]
 components = "miri,rust-src"
 
 [[tools.sccache]]
-version = "0.19.0"
+version = "0.20.0"
 backend = "aqua:mozilla/sccache"
 specifiers = ["latest"]
 
 [tools.sccache."platforms.linux-arm64"]
-checksum = "sha256:3e47fc4a71b1ddd1b4294a0de9d34498922fdf41e3cd0bda5df3954e3d6deb9d"
+checksum = "sha256:1bd78037804baeb9655f6baf8791f99c43388fae6d6b16944d3d93542fa5711a"
 checksum_source = "mise-versions"
-url = "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/mozilla/sccache/releases/assets/671950692"
+url = "https://github.com/mozilla/sccache/releases/download/v0.20.0/sccache-v0.20.0-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/mozilla/sccache/releases/assets/780826620"
 
 [tools.sccache."platforms.linux-x64"]
-checksum = "sha256:aa73c7270c997894038c0d8f0d297865f57569e1687883322bc431713d4bb9dd"
+checksum = "sha256:c3c5db9cd7e3be12b7bab350d8fe8ae7dcfb7269d5432b269e0dffa1a87c6ed2"
 checksum_source = "mise-versions"
-url = "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/mozilla/sccache/releases/assets/671951070"
+url = "https://github.com/mozilla/sccache/releases/download/v0.20.0/sccache-v0.20.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/mozilla/sccache/releases/assets/780827065"
