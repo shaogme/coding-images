@@ -94,7 +94,7 @@ backend = "cargo:cargo-bloat"
 specifiers = ["latest"]
 
 [[tools."cargo:cargo-deny"]]
-version = "0.22.1"
+version = "0.22.2"
 backend = "cargo:cargo-deny"
 specifiers = ["latest"]
 
